@@ -1,23 +1,34 @@
-# 微信截图王 v3.3 (WeChat Shot)
+# 微信截图王 v4.0 (WeChat Shot)
 
-> 一键生成逼真微信聊天截图的命令行工具。输入对话文本，自动生成高清截图或长截图，自带头像生成、红包/转账图标修复和 Emoji 真实渲染。
+> 智能微信聊天截图工具。支持图片 OCR / 文字输入，自动场景扩展，一键生成截图，本地 Excel 记录 + 腾讯文档同步。
 
 [![npm](https://img.shields.io/badge/node-%3E%3D18-brightgreen)](https://nodejs.org/)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 ---
 
+## 🆕 v4.0 新特性
+
+| 特性 | 说明 |
+|------|------|
+| 🤖 **智能全流程** | 图片OCR / 文字输入 → 自动扩展场景 → 确认 → 截图 → 记录，一步到位 |
+| 🎭 **场景自动生成** | 分析输入内容，自动创建贴合的角色名和对话（支持知乎/历史/技术/职场等场景） |
+| 📊 **Excel 自动记录** | 每次使用自动写入 `wechat-shot-records.xlsx`，含截图嵌入 |
+| ☁️ **腾讯文档同步** | 同步到腾讯文档同名智能表格 |
+
 ## 功能特性
 
 | 功能 | 说明 |
 |------|------|
+| 🤖 智能全流程 | `auto.js` — 图片/文字 → 场景扩展 → 确认 → 截图 → 记录 |
 | 📝 多消息类型 | 文字、图片、红包、转账、语音、时间节点 |
 | 😀 Emoji 真实渲染 | 使用 Twemoji CDN 将 emoji 渲染为彩色 SVG 图标，告别 ⊠ 豆腐块 |
-| 🎨 头像自动生成 | 集成 DiceBear 免费 API，按人物姓名生成专属头像，支持按角色指定不同风格 |
+| 🎨 头像自动生成 | 集成 DiceBear 免费 API，按人物姓名生成专属头像 |
 | 🔧 红包/转账修复 | 纯 CSS 绘制红包和转账图标，彻底解决 headless 环境下的显示问题 |
 | 📱 外观自定义 | 手机时间、电量、信号、群聊名称、气泡颜色 |
 | 📐 高清输出 | 1125×2436 PNG 截图 |
 | 📜 长截图 | 一键生成完整聊天记录长图 |
+| 📊 自动记录 | Excel 本地记录 + 腾讯文档同步 |
 | 🌍 通用兼容 | 支持任何 Linux 环境（WorkBuddy / CodeBuddy / OpenClaw / Docker 等） |
 
 ## 安装方式
@@ -41,6 +52,24 @@ node index.js --help
 - 网络访问（用于加载页面、DiceBear API 和 Twemoji CDN）
 
 ## 快速开始
+
+### 🆕 智能模式 (v4.0 推荐)
+
+```bash
+# 从文字描述生成（自动扩展场景）
+node auto.js --text "知乎上有一个离谱的历史回答"
+
+# 从图片生成（自动 OCR 识别）
+node auto.js --image ./screenshot.png
+
+# 跳过确认，直接生成
+node auto.js --text "老板在群里发火" --yes
+
+# 自定义群名和时间
+node auto.js --text "讨论项目方案" --contact "工作群(5)" --time "14:30"
+```
+
+### 传统模式（手动编写聊天文本）
 
 ```bash
 # 1. 使用内置示例生成截图

@@ -1,13 +1,15 @@
 {
   "name": "wechat-shot",
-  "version": "3.3.0",
-  "description": "一键生成逼真微信聊天截图 — 支持文字/图片/红包/转账/语音，自动头像生成，Twemoji 真实渲染",
+  "version": "4.0.0",
+  "description": "智能微信聊天截图工具 — 支持图片OCR/文字输入，自动场景扩展，一键生成截图，Excel记录+腾讯文档同步",
   "main": "index.js",
   "bin": {
-    "wechat-shot": "./index.js"
+    "wechat-shot": "./index.js",
+    "wechat-shot-auto": "./auto.js"
   },
   "scripts": {
     "start": "node index.js",
+    "auto": "node auto.js",
     "help": "node index.js --help"
   },
   "keywords": [
@@ -20,7 +22,10 @@
     "dialog",
     "puppeteer",
     "dicebear",
-    "twemoji"
+    "auto",
+    "ocr",
+    "scene",
+    "excel"
   ],
   "author": "planover",
   "license": "MIT",
@@ -37,6 +42,7 @@
     "node": ">=18"
   },
   "dependencies": {
-    "puppeteer": "^25.3.0"
+    "puppeteer": "^25.3.0",
+    "xlsx": "^0.18.5"
   }
 }

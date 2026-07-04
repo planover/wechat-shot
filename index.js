@@ -136,6 +136,7 @@ function parseArgs() {
     avatarMap: null,
     chatText: null,
     verbose: false,
+    silent: false,  // v4.0: 静默模式，供 auto.js 调用
   };
 
   for (let i = 0; i < args.length; i++) {
@@ -155,6 +156,7 @@ function parseArgs() {
       case '--avatar-style': opts.avatarStyle = next; i++; break;
       case '--avatar-map': opts.avatarMap = next; i++; break;
       case '--verbose': case '-v': opts.verbose = true; break;
+      case '--silent': opts.silent = true; break;  // v4.0: 静默模式
       case '--help': case '-h': printHelp(); process.exit(0);
     }
   }
@@ -344,9 +346,11 @@ async function generateAvatars(chatText, defaultStyle, styleMap) {
 // ═══════════════════════════════════════════
 async function main() {
   const opts = parseArgs();
-  const log = (...args) => opts.verbose && console.log('[LOG]', ...args);
+  const log = (...args) => (opts.verbose && !opts.silent) && console.log('[LOG]', ...args);
+  // silent 模式下用 info() 输出关键信息，verbose 用 log()
+  const info = (...args) => !opts.silent && console.log(...args);
 
-  console.log('🚀 微信截图王 v3.3...');
+  if (!opts.silent) console.log('🚀 微信截图王 v4.0...');
   
   // 预处理：为 [图片] 填充随机URL
   let chatText = opts.chatText;
@@ -356,10 +360,10 @@ async function main() {
     log(`已自动填充 ${((chatText.match(/\[图片\]https?:\/\//g) || []).length)} 个图片URL`);
   }
   
-  console.log(`📝 聊天文本长度: ${chatText.length} 字符${needsImageFill ? ' (已自动填充图片)' : ''}`);
-  console.log(`📸 模式: ${opts.long ? '长截图' : '普通截图'}`);
-  console.log(`💬 群聊名称: ${opts.contact || '(默认)'}`);
-  console.log(`🎨 头像: ${opts.avatarStyle || '跳过'}${opts.avatarMap ? ' + 按角色定制' : ''}`);
+  info(`📝 聊天文本长度: ${chatText.length} 字符${needsImageFill ? ' (已自动填充图片)' : ''}`);
+  info(`📸 模式: ${opts.long ? '长截图' : '普通截图'}`);
+  info(`💬 群聊名称: ${opts.contact || '(默认)'}`);
+  info(`🎨 头像: ${opts.avatarStyle || '跳过'}${opts.avatarMap ? ' + 按角色定制' : ''}`);
 
   // ── 预生成头像 ──
   const avatarMap = await generateAvatars(chatText, opts.avatarStyle, opts.avatarMap);
@@ -717,14 +721,14 @@ async function main() {
     }
     fs.writeFileSync(opts.output, Buffer.from(base64Data, 'base64'));
 
-    console.log(`\n✅ 截图已保存: ${opts.output}`);
-    console.log(`📐 尺寸: ${canvasResult.width}×${canvasResult.height}`);
-    console.log(`📏 文件大小: ${(fs.statSync(opts.output).size / 1024).toFixed(1)} KB`);
+    info(`\n✅ 截图已保存: ${opts.output}`);
+    info(`📐 尺寸: ${canvasResult.width}×${canvasResult.height}`);
+    info(`📏 文件大小: ${(fs.statSync(opts.output).size / 1024).toFixed(1)} KB`);
     if (avatarMap.size > 0) {
-      console.log(`👤 已为 ${avatarMap.size} 个用户生成专属头像 (PNG格式)`);
+      info(`👤 已为 ${avatarMap.size} 个用户生成专属头像 (PNG格式)`);
     }
-    console.log(`🔧 红包/转账图标: SVG ✅`);
-    console.log(`🖼️  图片消息: ${needsImageFill ? '自动填充随机图 ✅' : '指定URL ✅'}`);
+    info(`🔧 红包/转账图标: SVG ✅`);
+    info(`🖼️  图片消息: ${needsImageFill ? '自动填充随机图 ✅' : '指定URL ✅'}`);
 
   } catch (error) {
     console.error(`\n❌ 错误: ${error.message}`);

@@ -1,16 +1,17 @@
-# 微信截图王 v3.3 (WeChat Shot)
+# 微信截图王 v4.0 (WeChat Shot)
 
-> 通用 CLI 工具，一键生成逼真微信聊天截图。在任何 Linux 环境下 `git clone && npm install` 即可使用。
+> 智能微信聊天截图工具。图片/文字输入 → 自动场景扩展 → 确认 → 长截图 → Excel记录 + 腾讯文档同步。
 
 ## 核心能力
 
 | 能力 | 说明 |
 |------|------|
+| 🤖 智能全流程 | `auto.js` — 图片OCR/文字输入 → 场景扩展 → 确认 → 截图 → 记录 |
 | 📝 多消息类型 | 文字、图片、红包、转账、语音、时间节点 |
 | 😀 Emoji 渲染 | Twemoji CDN，真实彩色 emoji 图标 |
 | 🎨 头像生成 | DiceBear API，按姓名生成专属 PNG 头像 |
 | 🔧 图标修复 | 纯 CSS 红包/转账图标，无字体依赖 |
-| 📱 外观自定义 | 时间、电量、信号、群名、气泡色 |
+| 📊 自动记录 | Excel 本地记录 + 腾讯文档同步 |
 | 📜 长截图 | 完整聊天记录一键导出 |
 
 ## 安装
@@ -19,7 +20,6 @@
 git clone https://github.com/planover/wechat-shot.git
 cd wechat-shot
 npm install
-node index.js --help
 ```
 
 - Node.js ≥ 18
@@ -28,18 +28,23 @@ node index.js --help
 
 ## 快速使用
 
+### 智能模式 (v4.0)
+
 ```bash
-# 内置示例
-node index.js
+# 文字描述 → 自动扩展场景 → 截图
+node auto.js --text "知乎上有一个离谱的历史回答"
 
-# 从文件导入
-node index.js --input chat.txt
+# 图片 → OCR → 场景扩展 → 截图
+node auto.js --image ./screenshot.png
 
-# 长截图 + 自定义群名
-node index.js --input chat.txt --long --contact "历史吃瓜群(3)" --time "10:42"
+# 跳过确认
+node auto.js --text "老板在群里发火" --yes
+```
 
-# 详细日志
-node index.js --input chat.txt --verbose
+### 传统模式
+
+```bash
+node index.js --input chat.txt --long --contact "群名"
 ```
 
 ## 聊天格式
@@ -52,29 +57,9 @@ node index.js --input chat.txt --verbose
 **小红**：[转账]8.88:收到
 ```
 
-- `[图片]` 无 URL 自动填充随机图
-- `[红包]备注` / `[转账]金额:备注` / `[语音]秒数`
-- Emoji 自动转为 Twemoji 图标
-
-## 参数
-
-| 参数 | 说明 | 默认 |
-|------|------|------|
-| `--input` | 聊天文本文件 | 内置示例 |
-| `--output` | 输出路径 | `./微信聊天记录_*.png` |
-| `--long` | 长截图 | false |
-| `--time` | 时间 HH:MM | 12:02 |
-| `--contact` | 群聊名称 | 默认 |
-| `--avatar-style` | 头像风格 | avataaars |
-| `--avatar-map` | 按角色指定 `"名:风格,名:风格"` | — |
-
-## 头像风格
-
-`avataaars`(默认) `lorelei` `bottts` `identicon` `pixel-art` `thumbs` `notionists` `shapes` `none`
-
 ## 技术栈
 
-Puppeteer + html-to-image + DiceBear + Twemoji
+Puppeteer + html-to-image + DiceBear + Twemoji + xlsx
 
 ## License
 
