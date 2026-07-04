@@ -1,14 +1,14 @@
 #!/usr/bin/env node
 /**
- * 微信截图王 v3.2 - 自动化技能
+ * 微信截图王 v3.3 - 通用聊天截图工具
  *
  * 基于 https://gaopengbin.github.io/wechat-dialog-generator/
  * 通过 Puppeteer 操控页面，输入聊天文本，自动生成并下载截图。
  *
- * v3.2 更新:
- *   - 🔧 图标尺寸放大到 90px，匹配 .wc-rp-icon 容器(102x120)
- *   - 🎉 Emoji 替换: 🤣😂→[笑哭], 🔥→[火] 等 (4种emoji支持)
- *   - ✅ 增强阴影和渐变效果
+ * v3.3 更新:
+ *   - 🌍 通用化: 去掉平台专属路径, git clone 即可用 (OpenClaw 等)
+ *   - 😀 Twemoji 渲染: emoji 显示为真实彩色图标 (非 [笑哭] 文字)
+ *   - 📦 标准 npm 包结构
  *
  * v3.0 重大更新:
  *   - ✅ 彻底修复红包/转账图标 ⊠ 问题 (纯 HTML/CSS 内嵌元素)
@@ -198,7 +198,9 @@ function parseArgs() {
   if (!opts.output) {
     const ts = Date.now();
     const suffix = opts.long ? '长截图' : '截图';
-    opts.output = `/workspace/微信聊天记录_${suffix}_${ts}.png`;
+    // 通用路径: 优先当前目录，其次 /workspace (容器环境)
+    const outDir = fs.existsSync('/workspace') ? '/workspace' : process.cwd();
+    opts.output = path.join(outDir, `微信聊天记录_${suffix}_${ts}.png`);
   }
 
   return opts;
@@ -207,7 +209,7 @@ function parseArgs() {
 function printHelp() {
   console.log(`
 ╔════════════════════════════════════════════════════╗
-║           微信截图王 v3.2 — WeChat Shot            ║
+║           微信截图王 v3.3 — WeChat Shot            ║
 ╚════════════════════════════════════════════════════╝
 
 用法: node index.js [选项]
@@ -215,7 +217,7 @@ function printHelp() {
 选项:
   -i, --input <file>      聊天记录文本文件（不指定则使用内置示例）
   -o, --output <file>     输出图片路径
-  -l, --long              生成长截图（完整聊天记录）⭐v3.2
+  -l, --long              生成长截图（完整聊天记录）⭐v3.3
   --time <HH:MM>          手机时间（默认 12:02）
   --contact <name>        聊天标题/群聊名称 ⭐
   --battery <0-100>       电量百分比（默认 60）
@@ -225,7 +227,7 @@ function printHelp() {
   --other-color <hex>     他人气泡色（默认 #ffffff）
   --avatar-style <style>  头像风格（默认 avataaars⭐）⭐
   --avatar-map <map>      按角色指定风格 "张三:avataaars,李四:bottts"
-  -v, --verbose           显示详细日志 ⭐v3.2增强
+  -v, --verbose           显示详细日志 ⭐v3.3
   -h, --help              显示帮助
 
 头像风格 (--avatar-style):
@@ -244,9 +246,10 @@ function printHelp() {
   **用户名**：文字内容       普通消息
   **用户名**：[图片]         随机图片（自动填充）
   **用户名**：[图片]URL      指定图片URL
-  **用户名**：[红包]备注     红包（纯CSS图标✅ v3.2增强）
-  **用户名**：[转账]金额:备注 转账（纯CSS图标✅ v3.2增强）
+  **用户名**：[红包]备注     红包（纯CSS图标✅ v3.3）
+  **用户名**：[转账]金额:备注 转账（纯CSS图标✅ v3.3）
   **用户名**：[语音]秒数     语音消息
+  **用户名**：文字😀🤣🔥     任意文本（emoji 自动转为 Twemoji 图标✅ v3.3）
 `);
 }
 
@@ -343,7 +346,7 @@ async function main() {
   const opts = parseArgs();
   const log = (...args) => opts.verbose && console.log('[LOG]', ...args);
 
-  console.log('🚀 启动微信截图王 v3.2...');
+  console.log('🚀 微信截图王 v3.3...');
   
   // 预处理：为 [图片] 填充随机URL
   let chatText = opts.chatText;
@@ -495,58 +498,53 @@ async function main() {
         }
       });
 
-      // 修复聊天气泡中的 emoji ⊠ 问题
-      // 策略：用文字标签替换常见 emoji，避免 headless Chromium 无字体问题
-      const phone = document.querySelector('.wc-phone');
+      // ── v3.3: Twemoji 真实渲染 ──
+      // 把文本中的 emoji 替换为 Twemoji CDN 的 SVG <img> 标签
+      // 比文字替换 ([笑哭]) 更美观，html-to-image 对 <img> 支持好
       let fixedEmoji = 0;
-      if (phone) {
-        // 气泡文本在 .wc-bubble > span (裸span，没有class名) 中
-        document.querySelectorAll('.wc-bubble').forEach(bubble => {
-          // 找到气泡内的所有直接/间接子 span（文本内容节点）
-          const allSpans = bubble.querySelectorAll('span');
 
-          for (const textEl of allSpans) {
-            const html = textEl.innerHTML;
-            if (!html || textEl.querySelector('*')) continue; // 跳过有子元素的容器
+      function twemojiReplacer(match) {
+        // 提取第一个 codepoint 作为文件名
+        const cp = match.codePointAt(0);
+        if (!cp) return match;
+        const hex = cp.toString(16);
+        // 跳过 ASCII 范围的非 emoji
+        if (cp < 256) return match;
+        // 使用 Twemoji SVG CDN
+        return `<img src="https://cdn.jsdelivr.net/gh/twitter/twemoji@latest/assets/svg/${hex}.svg"
+          alt="${match}" style="width:1.25em;height:1.25em;display:inline-block;vertical-align:-0.25em;">`;
+      }
 
-            let newHtml = html;
+      // emoji 范围的正则 (覆盖大部分常用 emoji)
+      // U+1F000-U+1FFFF, U+2600-U+27BF, U+2300-U+23FF, U+2B50, U+2700-U+27BF, U+FE4E5-U+FE4EE 等
+      const EMOJI_RE = /[\u{1F000}-\u{1FFFF}\u{2600}-\u{27BF}\u{2300}-\u{23FF}\u{2B50}\u{2700}-\u{27BF}\u{FE00}-\u{FE0F}\u{200D}\u{20E3}\u{FE4E5}-\u{FE4EE}\u{3297}\u{3299}\u{3030}\u{303D}\u{00A9}\u{00AE}\u{2122}\u{2139}\u{2328}\u{23CF}\u{24C2}\u{25AA}-\u{25FE}\u{260E}\u{2614}\u{2615}\u{2618}\u{261D}\u{2620}\u{2622}\u{2623}\u{2626}\u{262A}\u{262E}\u{262F}\u{2638}-\u{263A}\u{2640}\u{2642}\u{2648}-\u{2653}\u{265F}\u{2660}\u{2663}\u{2665}\u{2666}\u{2668}\u{267B}\u{267E}\u{267F}\u{2692}-\u{2697}\u{2699}\u{269B}\u{269C}\u{26A0}\u{26A1}\u{26A7}\u{26AA}\u{26AB}\u{26B0}\u{26B1}\u{26BD}\u{26BE}\u{26C4}\u{26C5}\u{26C8}\u{26CE}\u{26CF}\u{26D1}\u{26D3}\u{26D4}\u{26E9}\u{26EA}\u{26F0}-\u{26F5}\u{26F7}-\u{26FA}\u{26FD}]+/gu;
 
-            // 常见 emoji → 文字/符号 替换映射
-            const emojiMap = [
-              [/🤣/g, '<b style="color:#f5a623;">[笑哭]</b>'],
-              [/😂/g, '<b style="color:#f5a623;">[笑哭]</b>'],
-              [/😭/g, '<b style="color:#e74c3c;">[大哭]</b>'],
-              [/🎉/g, '[庆祝]'],
-              [/👍/g, '👍'],  // 可能正常渲染
-              [/❤️/g, '<span style="color:#e74c3c;font-weight:bold;">♥</span>'],
-              [/🔥/g, '<b style="color:#e74c3c;">[火]</b>'],
-              [/✅/g, '<span style="color:#27ae60;font-weight:bold;">✓</span>'],
-              [/⚠️/g, '<b style="color:#f39c12;">[注意]</b>'],
-              [/🤔/g, '[思考]'],
-              [/👏/g, '[鼓掌]'],
-              [/💰/g, '[钱]'],
-              [/🧧/g, '[红包]'],
-              [/😅/g, '[尬]'],
-              [/🙈/g, '[捂脸]'],
-              [/💯/g, '[满分]'],
-              [/🤝/g, '[握手]'],
-            ];
+      document.querySelectorAll('.wc-bubble').forEach(bubble => {
+        // 遍历所有裸 span 文本节点（不在 .wc-rp-icon 内）
+        const spans = bubble.querySelectorAll('span');
+        for (const span of spans) {
+          // 跳过红包/转账相关的特殊元素
+          if (span.closest('.wc-rp-icon') || span.closest('.wc-rp-content') ||
+              span.closest('.wc-rp-bottom') || span.closest('.wc-rp-info')) continue;
+          
+          const html = span.innerHTML;
+          if (!html || span.querySelector('*')) continue; // 跳过有子元素的
 
-            for (const [regex, replacement] of emojiMap) {
-              newHtml = newHtml.replace(regex, replacement);
-            }
-
+          // 检测是否含 emoji
+          if (EMOJI_RE.test(html)) {
+            EMOJI_RE.lastIndex = 0; // reset regex state
+            const newHtml = html.replace(EMOJI_RE, twemojiReplacer);
             if (newHtml !== html) {
-              textEl.innerHTML = newHtml;
+              span.innerHTML = newHtml;
               fixedEmoji++;
             }
           }
-        });
-      }
+        }
+      });
 
       return { fixedRp, fixedTf, fixedEmoji };
     }).then(r => {
-      log(`图标注入: 红包=${r.fixedRp}, 转账=${r.fixedTf}, emoji替换=${r.fixedEmoji || 0}`);
+      log(`图标注入: 红包=${r.fixedRp}, 转账=${r.fixedTf}, emoji(Twemoji)=${r.fixedEmoji || 0}`);
     });
 
     await new Promise(r => setTimeout(r, 1000));

@@ -1,15 +1,41 @@
 {
-  "name": "wechat-dialog-screenshot",
-  "version": "1.0.0",
-  "description": "",
+  "name": "wechat-shot",
+  "version": "3.3.0",
+  "description": "一键生成逼真微信聊天截图 — 支持文字/图片/红包/转账/语音，自动头像生成，Twemoji 真实渲染",
   "main": "index.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+  "bin": {
+    "wechat-shot": "./index.js"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "scripts": {
+    "start": "node index.js",
+    "help": "node index.js --help"
+  },
+  "keywords": [
+    "wechat",
+    "微信",
+    "screenshot",
+    "截图",
+    "chat",
+    "聊天",
+    "dialog",
+    "puppeteer",
+    "dicebear",
+    "twemoji"
+  ],
+  "author": "planover",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/planover/wechat-shot.git"
+  },
+  "homepage": "https://github.com/planover/wechat-shot#readme",
+  "bugs": {
+    "url": "https://github.com/planover/wechat-shot/issues"
+  },
   "type": "commonjs",
+  "engines": {
+    "node": ">=18"
+  },
   "dependencies": {
     "puppeteer": "^25.3.0"
   }
