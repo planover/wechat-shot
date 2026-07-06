@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * 微信截图王 v4.0 — 智能全流程自动化
+ * 微信截图王 v4.2 — 智能全流程自动化（含 --llm 大模型生成）
  *
  * 用法:
  *   node auto.js --image ./photo.png              # 图片OCR → 扩展 → 确认 → 截图 → 记录
@@ -11,7 +11,7 @@
  * 流程:
  *   Step 0: 读取输入（图片路径 或 文字描述）
  *   Step 1: 图片 → OCR 提取文字 / 文字 → 直接作为场景描述
- *   Step 2: 场景扩展 → 生成微信聊天文本
+ *   Step 2: 生成微信聊天文本（--llm 调大模型 / 否则模板引擎 / 或聊天记录透传）
  *   Step 3: 展示聊天文本，等待用户确认
  *   Step 4: 确认后调用 index.js 生成长截图
  *   Step 5: 写入本地 Excel (wechat-shot-records.xlsx)
@@ -19,6 +19,7 @@
  */
 
 const { expandToChat, looksLikeChat, humanize } = require('./lib/expand');
+const { generateChatViaLLM, escapeHtml, applyComplianceFilter } = require('./lib/llm');
 const { addRecord, syncToTencentDocs } = require('./lib/record');
 const { execSync, spawn } = require('child_process');
 const fs = require('fs');
@@ -43,6 +44,10 @@ function parseArgs() {
     avatarStyle: 'avataaars',
     realism: 0.7,
     scene: null,
+    llm: false,
+    llmProvider: 'openai',
+    llmModel: null,
+    llmTemperature: null,
   };
 
   for (let i = 0; i < args.length; i++) {
@@ -62,6 +67,10 @@ function parseArgs() {
       case '--realism': opts.realism = parseFloat(next); i++; break;
       case '--scene': opts.scene = next; i++; break;
       case '--natural': case '--deai': opts.realism = 0.85; break;
+      case '--llm': opts.llm = true; break;
+      case '--llm-provider': opts.llmProvider = next; i++; break;
+      case '--llm-model': opts.llmModel = next; i++; break;
+      case '--llm-temperature': opts.llmTemperature = parseFloat(next); i++; break;
       case '--help': case '-h': printHelp(); process.exit(0);
     }
   }
@@ -80,7 +89,7 @@ function parseArgs() {
 function printHelp() {
   console.log(`
 ╔══════════════════════════════════════════════════════════╗
-║       微信截图王 v4.1 — 智能全流程自动化 (Auto)          ║
+║       微信截图王 v4.2 — 智能全流程自动化 (Auto)          ║
 ╚══════════════════════════════════════════════════════════╝
 
 用法: node auto.js [选项]
@@ -100,6 +109,10 @@ function printHelp() {
   --realism <0-1>       自然度 0=干净 1=很随意（默认 0.7）
   --natural / --deai    等价于 --realism 0.85，最大化"去AI味"
   --scene <key>         强制场景: daily/funny/work/tech/finance/academic/history/zhihu
+  --llm               启用大模型生成对话（需 LLM_API_KEY，缺失则自动回退模板）
+  --llm-model <m>     覆盖模型（默认读环境变量 LLM_MODEL，否则 gpt-4o-mini）
+  --llm-temperature <0-1> 覆盖采样温度（默认 0.9，越高越发散）
+  --llm-provider <p>  预留字段（默认 openai；使用 OpenAI 兼容 /chat/completions 接口）
   -v, --verbose         显示详细日志
   -h, --help            显示帮助
 
@@ -115,6 +128,11 @@ function printHelp() {
 
   # 直接给一段写好的聊天记录，仅做人味润色
   node auto.js --text "$(cat chat.txt)" --yes
+
+  # 调用大模型生成"以假乱真"的对话（需先 export LLM_API_KEY=...）
+  export LLM_API_KEY=sk-xxx
+  node auto.js --text "我妈看到我买的两千块的羽绒服直接沉默了" --llm --scene daily --deai
+  node auto.js --text "老板在群里发火说要裁员" --llm --llm-model gpt-4o --scene work
 `);
 }
 
@@ -273,7 +291,7 @@ async function generateScreenshot(chatText, opts) {
 async function main() {
   const opts = parseArgs();
   
-  console.log('🚀 微信截图王 v4.1 — 智能全流程自动化');
+  console.log('🚀 微信截图王 v4.2 — 智能全流程自动化');
   console.log('═'.repeat(50));
   
   // ── Step 0-1: 读取输入 ──
@@ -291,17 +309,39 @@ async function main() {
     rawContent = opts.text;
   }
   
-  // ── Step 2: 生成聊天文本（已含去AI味的人味处理）──
+  // ── Step 2: 生成聊天文本 ──
   console.log('\n🎭 正在生成聊天场景...');
   let chatText;
-  if (looksLikeChat(rawContent)) {
+  if (opts.llm) {
+    // 大模型模式：直接请求 LLM 生成自然对话；失败/无 key 时自动回退模板
+    console.log('🤖 启用大模型生成（--llm）');
+    chatText = await generateChatViaLLM(rawContent, {
+      realism: opts.realism,
+      scene: opts.scene,
+      model: opts.llmModel,
+      temperature: opts.llmTemperature,
+    });
+  } else if (looksLikeChat(rawContent)) {
     // 已经是聊天记录：仅做轻度人味润色，保持原意
     console.log('🔎 检测到已有聊天记录，直接采用并轻度润色');
     chatText = humanizeChat(rawContent, opts.realism);
   } else {
     chatText = expandToChat(rawContent, { realism: opts.realism, scene: opts.scene });
   }
-  console.log(`🪄 自然度 realism=${opts.realism}`);
+  console.log(`🪄 自然度 realism=${opts.realism}${opts.llm ? ' · 来源=大模型' : ''}`);
+
+  // ── 统一合规出口（上线阻断级）──
+  // 单点过滤：用户 --text / OCR 原文 / 模板 / LLM 输出 全部经此处后再展示/渲染/持久化/外发，
+  // 保证"任何不当内容都不持久化(Excel)或外发(腾讯文档同步)"，且覆盖 XSS 转义前的所有来源。
+  const rc = applyComplianceFilter(rawContent);
+  rawContent = rc.ok ? rc.text : '[用户输入含受限内容，已过滤]';
+  const cc = applyComplianceFilter(chatText);
+  if (!cc.ok) {
+    console.warn(`⚠️ 聊天内容命中安全词(${cc.reason})，回退模板生成`);
+    chatText = expandToChat(rawContent, { realism: opts.realism, scene: opts.scene });
+  } else {
+    chatText = cc.text;
+  }
   
   // ── Step 3: 展示并确认 ──
   console.log('\n' + '─'.repeat(50));
@@ -319,9 +359,10 @@ async function main() {
   }
   
   // ── Step 4: 生成长截图 ──
+  // 渲染前对聊天文本做 HTML 转义，杜绝 index.js 渲染期 innerHTML 注入（XSS，防 <img onerror=...>）
   let outputPath;
   try {
-    outputPath = await generateScreenshot(chatText, opts);
+    outputPath = await generateScreenshot(escapeHtml(chatText), opts);
   } catch (err) {
     console.error(`❌ 截图失败: ${err.message}`);
     process.exit(1);

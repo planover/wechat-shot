@@ -1,8 +1,8 @@
 ---
 name: wechat-shot
-description: "微信截图王 — 生成逼真的微信聊天截图。支持文字/图片(OCR)/红包/转账/语音/长截图，自动头像生成，纯CSS图标，v4.1 起支持 --realism/--deai 去AI味自然度。当用户需要制作微信对话截图、聊天记录长图、模拟微信聊天界面时使用。"
+description: "微信截图王 — 生成逼真的微信聊天截图。支持文字/图片(OCR)/红包/转账/语音/长截图，自动头像生成，纯CSS图标。v4.1 起支持 --realism/--deai 去AI味自然度；v4.2 起支持 --llm 大模型生成模式（OpenAI 兼容，密钥零泄露+SSRF防护）。当用户需要制作微信对话截图、聊天记录长图、模拟微信聊天界面时使用。"
 description_zh: "微信聊天截图生成器"
-version: 4.1.0
+version: 4.2.0
 allowed-tools:
   - Bash
   - Read
@@ -12,7 +12,7 @@ display_name: "微信截图王"
 visibility: "public"
 ---
 
-# 微信截图王 v4.1 (WeChat Shot)
+# 微信截图王 v4.2 (WeChat Shot)
 
 > 智能微信聊天截图工具。图片/文字输入 → 自动场景扩展（去 AI 味）→ 确认 → 长截图 → Excel记录 + 腾讯文档同步。
 
@@ -42,7 +42,7 @@ npm install
 
 ## 快速使用
 
-### 智能模式 (v4.1)
+### 智能模式 (v4.2)
 
 ```bash
 # 文字描述 → 自动扩展场景 → 截图（默认自然度 0.7）
@@ -60,6 +60,18 @@ node auto.js --text "讨论项目方案" --scene work --realism 0.9
 # 跳过确认
 node auto.js --text "老板在群里发火" --yes
 ```
+
+### 🤖 大模型生成模式 (v4.2)
+
+需要 OpenAI 兼容的大模型接口，密钥通过环境变量 `LLM_API_KEY` 提供（仅用于请求，绝不打印/落盘）：
+
+```bash
+export LLM_API_KEY=sk-xxx
+node auto.js --text "我妈看到我买的两千块的羽绒服直接沉默了" --llm --scene daily --deai
+# 可选：--llm-model gpt-4o  /  --llm-temperature 0.95  /  LLM_BASE_URL 自定义端点
+```
+
+未设置 `LLM_API_KEY` 或调用失败时，自动回退到模板引擎，不影响出图。
 
 ### 🪄 去 AI 味（自然度）
 
