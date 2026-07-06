@@ -25,7 +25,7 @@
 - 无 `LLM_API_KEY` 或 LLM 调用失败（超时/限流/网络）时，自动回退到 v4.1 模板引擎，不中断主流程。
 
 ### 修复 (Fixed)
-- **SSRF 防护遗漏 IPv6 环回/链路本地 + IPv4-mapped**：`lib/llm.js` 的 `isBlockedHostname` 改用 `net.isIP` 判定，新增「IPv4-mapped IPv6 解码」——`::ffff:169.254.169.254`（云元数据）这类绕过已封堵；同时覆盖环回 `::1`/`::`、链路本地 `fe80::/10`、IPv4 全私网段，公网 IPv4/IPv6 正常放行（qa 12 用例复测通过）。
+- **SSRF 防护遗漏 IPv6 环回/链路本地 + IPv4-mapped（含十六进制形态）**：`lib/llm.js` 的 `isBlockedHostname` 改用 `net.isIP` 判定，并解码 IPv4-mapped **两种形态**——点分十进制 `::ffff:A.B.C.D` 与 **Node `new URL()` 归一化后的十六进制 `::ffff:a9fe:a9fe`**（真实入口形态），二者皆拦；覆盖环回 `::1`/`::`、链路本地 `fe80::/10`、IPv4 全私网段，公网 IPv4/IPv6 正常放行。**经真实 `assertSafeBaseUrl` → `new URL()` 入口复测 5/5 通过**（`[::ffff:169.254.169.254]`/`[::ffff:127.0.0.1]` 均 BLOCK，`[::ffff:8.8.8.8]` 公网 ALLOW）。
 - **模板回退偶发单字发言者名**：`lib/expand.js` 第二段对话误写 `pick(rng, pick(rng, others))`，把名字字符串当字符数组取了单个字（如 `**经**：`）；改为单次 `pick(rng, others)`。
 - **内容合规词表可被分隔符绕过**：`sanitizeLLMOutput` 增加去空白后二次匹配，防止"刷 单 返 利"插空绕过。
 - 注：`--llm-provider` 为预留参数（trivial），当前未实际使用，保留以兼容后续多供应商扩展。
