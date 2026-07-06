@@ -1,6 +1,14 @@
-# WeChat Shot v3.3
+# WeChat Shot v4.1
 
-> A CLI tool that generates realistic WeChat chat screenshots. Input dialogue text, automatically generate HD screenshots or long screenshots, with built-in avatar generation, icon fixing and Twemoji rendering.
+> A CLI tool that generates realistic WeChat chat screenshots. Image/OCR or text input → auto scene expansion (with de-AI naturalness) → confirmation → long screenshot → Excel log + Tencent Docs sync.
+
+## v4.1 — De-AI, more natural
+
+- Rewrote `lib/expand.js` dialogue engine: large phrase banks + random sampling + irregular turns + colloquial style.
+- New `--realism 0~1` (default 0.7), `--natural` / `--deai` (= 0.85) for max naturalness.
+- New `--scene <key>` to force a scene (daily/funny/work/tech/finance/academic/history/zhihu).
+- Chat transcript passthrough: if `--text` is already `**Name**：` chat, it is adopted directly with light humanizing.
+- Tip: for the most lifelike result, let your AI assistant write the dialogue, then render it.
 
 [![Node](https://img.shields.io/badge/node-%3E%3D18-brightgreen)](https://nodejs.org/)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)

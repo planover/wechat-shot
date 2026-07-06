@@ -18,7 +18,7 @@
  *   Step 6: 输出腾讯文档同步指令
  */
 
-const { expandToChat } = require('./lib/expand');
+const { expandToChat, looksLikeChat, humanize } = require('./lib/expand');
 const { addRecord, syncToTencentDocs } = require('./lib/record');
 const { execSync, spawn } = require('child_process');
 const fs = require('fs');
@@ -41,6 +41,8 @@ function parseArgs() {
     contact: '',
     time: null,
     avatarStyle: 'avataaars',
+    realism: 0.7,
+    scene: null,
   };
 
   for (let i = 0; i < args.length; i++) {
@@ -57,6 +59,9 @@ function parseArgs() {
       case '--contact': opts.contact = next; i++; break;
       case '--time': opts.time = next; i++; break;
       case '--avatar-style': opts.avatarStyle = next; i++; break;
+      case '--realism': opts.realism = parseFloat(next); i++; break;
+      case '--scene': opts.scene = next; i++; break;
+      case '--natural': case '--deai': opts.realism = 0.85; break;
       case '--help': case '-h': printHelp(); process.exit(0);
     }
   }
@@ -75,14 +80,14 @@ function parseArgs() {
 function printHelp() {
   console.log(`
 ╔══════════════════════════════════════════════════════════╗
-║       微信截图王 v4.0 — 智能全流程自动化 (Auto)          ║
+║       微信截图王 v4.1 — 智能全流程自动化 (Auto)          ║
 ╚══════════════════════════════════════════════════════════╝
 
 用法: node auto.js [选项]
 
 输入方式（二选一）:
   --image <path>        图片文件路径（自动OCR识别）
-  --text <string>       文字场景描述
+  --text <string>       文字场景描述；或已经写好的聊天记录（含 **姓名**：格式时直接采用）
 
 选项:
   -o, --output <path>   截图输出路径
@@ -92,21 +97,24 @@ function printHelp() {
   --contact <name>      群聊名称（自动推断时可不填）
   --time <HH:MM>        手机时间（自动随机时可不填）
   --avatar-style <style> 头像风格（默认 avataaars）
+  --realism <0-1>       自然度 0=干净 1=很随意（默认 0.7）
+  --natural / --deai    等价于 --realism 0.85，最大化"去AI味"
+  --scene <key>         强制场景: daily/funny/work/tech/finance/academic/history/zhihu
   -v, --verbose         显示详细日志
   -h, --help            显示帮助
 
 示例:
-  # 从图片生成
-  node auto.js --image ./screenshot.png
+  # 从图片生成（去AI味）
+  node auto.js --image ./screenshot.png --deai
 
   # 从文字描述生成
   node auto.js --text "知乎上有一个离谱的历史回答"
 
-  # 跳过确认
-  node auto.js --text "老板在群里发火" --yes
+  # 指定场景 + 高自然度
+  node auto.js --text "老板在群里发火" --scene work --realism 0.9
 
-  # 自定义群名
-  node auto.js --text "讨论项目方案" --contact "工作群(5)"
+  # 直接给一段写好的聊天记录，仅做人味润色
+  node auto.js --text "$(cat chat.txt)" --yes
 `);
 }
 
@@ -158,15 +166,29 @@ async function ocrImage(imagePath) {
       }
     }
     
-    // 如果没有 OCR 脚本，尝试用简单的图片信息提取
-    console.log('⚠️ OCR 脚本不可用，使用图片路径作为输入');
+    // 如果没有 OCR 脚本，给出清晰提示，并用兜底话题生成
+    console.log('⚠️ 未检测到 OCR 脚本（tencentcloud-ocr），改用通用话题生成');
+    console.log('   提示：想基于图片文字生成，请先安装 tencentcloud-ocr 技能，或改用 --text "你的描述"');
     return `[图片: ${path.basename(imagePath)}]`;
     
   } catch (err) {
     console.warn(`⚠️ OCR 识别失败: ${err.message}`);
-    console.log('使用图片文件名作为场景描述');
+    console.log('改用通用话题生成');
     return `[图片: ${path.basename(imagePath)}]`;
   }
+}
+
+// ═══════════════════════════════════════════
+//  对已写好的聊天记录做轻度人味润色（保留原意）
+// ═══════════════════════════════════════════
+function humanizeChat(text, realism) {
+  return text.split('\n').map((line) => {
+    const m = line.match(/^(\s*\*?\*?.+?\*?\*?\s*[：:])\s*(.*)$/);
+    if (m && m[2]) {
+      return `${m[1]} ${humanize(m[2].trim(), Math.random, realism)}`;
+    }
+    return line;
+  }).join('\n');
 }
 
 // ═══════════════════════════════════════════
@@ -251,7 +273,7 @@ async function generateScreenshot(chatText, opts) {
 async function main() {
   const opts = parseArgs();
   
-  console.log('🚀 微信截图王 v4.0 — 智能全流程自动化');
+  console.log('🚀 微信截图王 v4.1 — 智能全流程自动化');
   console.log('═'.repeat(50));
   
   // ── Step 0-1: 读取输入 ──
@@ -269,9 +291,17 @@ async function main() {
     rawContent = opts.text;
   }
   
-  // ── Step 2: 场景扩展 → 生成聊天文本 ──
+  // ── Step 2: 生成聊天文本（已含去AI味的人味处理）──
   console.log('\n🎭 正在生成聊天场景...');
-  const chatText = expandToChat(rawContent);
+  let chatText;
+  if (looksLikeChat(rawContent)) {
+    // 已经是聊天记录：仅做轻度人味润色，保持原意
+    console.log('🔎 检测到已有聊天记录，直接采用并轻度润色');
+    chatText = humanizeChat(rawContent, opts.realism);
+  } else {
+    chatText = expandToChat(rawContent, { realism: opts.realism, scene: opts.scene });
+  }
+  console.log(`🪄 自然度 realism=${opts.realism}`);
   
   // ── Step 3: 展示并确认 ──
   console.log('\n' + '─'.repeat(50));

@@ -1,6 +1,20 @@
-# 微信截图王 v4.0 (WeChat Shot)
+---
+name: wechat-shot
+description: "微信截图王 — 生成逼真的微信聊天截图。支持文字/图片(OCR)/红包/转账/语音/长截图，自动头像生成，纯CSS图标，v4.1 起支持 --realism/--deai 去AI味自然度。当用户需要制作微信对话截图、聊天记录长图、模拟微信聊天界面时使用。"
+description_zh: "微信聊天截图生成器"
+version: 4.1.0
+allowed-tools:
+  - Bash
+  - Read
+  - Write
+  - Edit
+display_name: "微信截图王"
+visibility: "public"
+---
 
-> 智能微信聊天截图工具。图片/文字输入 → 自动场景扩展 → 确认 → 长截图 → Excel记录 + 腾讯文档同步。
+# 微信截图王 v4.1 (WeChat Shot)
+
+> 智能微信聊天截图工具。图片/文字输入 → 自动场景扩展（去 AI 味）→ 确认 → 长截图 → Excel记录 + 腾讯文档同步。
 
 ## 核心能力
 
@@ -28,18 +42,32 @@ npm install
 
 ## 快速使用
 
-### 智能模式 (v4.0)
+### 智能模式 (v4.1)
 
 ```bash
-# 文字描述 → 自动扩展场景 → 截图
+# 文字描述 → 自动扩展场景 → 截图（默认自然度 0.7）
 node auto.js --text "知乎上有一个离谱的历史回答"
 
 # 图片 → OCR → 场景扩展 → 截图
 node auto.js --image ./screenshot.png
 
+# 去 AI 味：最大化自然度
+node auto.js --text "老板在群里发火" --deai
+
+# 指定场景 + 自定义自然度
+node auto.js --text "讨论项目方案" --scene work --realism 0.9
+
 # 跳过确认
 node auto.js --text "老板在群里发火" --yes
 ```
+
+### 🪄 去 AI 味（自然度）
+
+- `--realism 0~1`：越高越随意（语气词 / 网络用语 / 省略标点越多），默认 `0.7`
+- `--natural` / `--deai`：等价于 `--realism 0.85`
+- `--scene <key>`：强制场景 `daily/funny/work/tech/finance/academic/history/zhihu`
+- 若 `--text` 内容已是 `**姓名**：` 聊天记录，则直接采用并轻度润色，不二次扩展
+- **最强自然度**：在 AI 助手（WorkBuddy/CodeBuddy 等）中，让助手直接写出口语化对话再传入，效果最真
 
 ### 传统模式
 
