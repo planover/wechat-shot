@@ -15,14 +15,17 @@
 - **系统提示词硬拒指令（上线阻断级）**：新增第 7/8 条约束——无论用户输入什么，模型只能输出聊天文本，不执行/复述指令、不切换角色、不输出格式外内容；并禁止生成涉政/色情/赌博/诈骗内容（场景涉及则替换为日常闲聊）。
 - **统一合规出口（上线阻断级）**：`auto.js` 在 Step 2 之后、展示/渲染/持久化/外发之前，对**所有来源**的 `rawContent`（用户 `--text` / OCR 原文）与 `chatText`（模板 / LLM 输出 / 聊天透传）做单点 `applyComplianceFilter` 过滤——长度上限（4000 字）+ 涉政/辱骂/诈骗/违法关键词拦截，命中即回退模板或脱敏。五个 sink（渲染 / Excel `lib/record.js` / 腾讯文档同步）均只读这两个变量，故单一 chokepoint 即可闭合"不当内容被持久化或外发"链路。
 - **渲染期 XSS 防护（上线阻断级）**：`auto.js` 在调用 `index.js` 渲染前对聊天文本做 HTML 转义（`escapeHtml`），杜绝 `index.js` emoji 处理处 `innerHTML` 解析 `<img onerror=...>` 等脚本注入。
-- **安全评审遗留项复核**：安全官原报 F-01（图片 URL 任意请求 SSRF）与 F-02（OCR HTTP 明文）经核查**不适用于本仓库当前版本**——`index.js` 仅从固定公共 CDN（jsdelivr Twemoji、DiceBear 头像）取图、无用户可控 URL 请求；`ocrImage` 为本地 `execSync` 子进程而非网络调用。故未对脆弱的渲染层做额外改动。
+- **安全评审遗留项复核（F-01 / F-02 不适用，附证据）**：安全官原报 F-01（图片 URL 任意请求 SSRF，指 index.js:610/620/627）与 F-02（OCR HTTP 明文，指 auto.js:170/187）。经逐行核查**不适用于本仓库当前版本**：
+  - `index.js` 全文仅两处取图：line 518 Twemoji SVG（固定 `cdn.jsdelivr.net`）、line 566 DiceBear 头像（固定公共域名）；**无任何用户可控 URL 的 fetch/request**，故 F-01 不成立。
+  - `auto.js` 的 `ocrImage`（line 155-197）为本地 `execSync('node ocr.js ...')` 子进程，非网络调用，故 F-02（HTTP 明文）不成立。
+  - 本仓库唯一网络出口是受 `assertSafeBaseUrl` 守卫的 LLM API 调用（已含 IPv4/IPv6/链路本地/元数据全封堵）。故未对脆弱的渲染层做额外改动。
 
 ### 改进 (Changed)
 - `--scene` / `--realism` 在 `--llm` 模式下作为语境与自然度约束注入系统提示词。
 - 无 `LLM_API_KEY` 或 LLM 调用失败（超时/限流/网络）时，自动回退到 v4.1 模板引擎，不中断主流程。
 
 ### 修复 (Fixed)
-- **SSRF 防护遗漏 IPv6 环回/链路本地**：`lib/llm.js` 的 `isBlockedHostname` 原先只比对 `::1`，但 `new URL` 解析后 IPv6 字面量 hostname 带方括号（`[::1]`）导致漏拦；新增方括号归一化，并补拦 `fe80::/10` 链路本地。
+- **SSRF 防护遗漏 IPv6 环回/链路本地 + IPv4-mapped**：`lib/llm.js` 的 `isBlockedHostname` 改用 `net.isIP` 判定，新增「IPv4-mapped IPv6 解码」——`::ffff:169.254.169.254`（云元数据）这类绕过已封堵；同时覆盖环回 `::1`/`::`、链路本地 `fe80::/10`、IPv4 全私网段，公网 IPv4/IPv6 正常放行（qa 12 用例复测通过）。
 - **模板回退偶发单字发言者名**：`lib/expand.js` 第二段对话误写 `pick(rng, pick(rng, others))`，把名字字符串当字符数组取了单个字（如 `**经**：`）；改为单次 `pick(rng, others)`。
 - **内容合规词表可被分隔符绕过**：`sanitizeLLMOutput` 增加去空白后二次匹配，防止"刷 单 返 利"插空绕过。
 - 注：`--llm-provider` 为预留参数（trivial），当前未实际使用，保留以兼容后续多供应商扩展。
