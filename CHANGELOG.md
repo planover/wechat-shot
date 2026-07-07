@@ -11,7 +11,8 @@
 - **OCR 缺失回退 UX（MAJOR-3）**：未启用 OCR 时输出醒目 🔴 提示，明确告知"生成内容仅风格/场景相关，与图片本身无关"，并引导用 `--text` 手动输入贴合内容。
 
 ### 安全 (Security)
-- **P2 浏览器端 SSRF 白名单并入**：`index.js` 引入 `page.setRequestInterception(true)` + `onRequest`，调用共享 `lib/ssrf.js` 的 `isBlockedHostname` 拦截 `[图片]URL` 触发的内部 / 环回 / 链路本地（含云元数据 169.254）/ IPv4-mapped IPv6 地址请求；可选 `WS_IMAGE_ALLOWLIST` 严格模式 + 固定 CDN 集合（`cdn.jsdelivr.net` / `picsum.photos` / `gaopengbin.github.io` / `esm.sh`）。`decideImageRequest` 已导出供单测。
+- **P2 浏览器端 SSRF 白名单并入**：`index.js` 引入 `page.setRequestInterception(true)` + `onRequest`，调用共享 `lib/ssrf.js` 的 `isBlockedHostname` 拦截 `[图片]URL` 触发的内部 / 环回 / 链路本地（含云元数据 169.254）/ IPv4-mapped IPv6 地址请求；可选 `WS_IMAGE_ALLOWLIST` 严格模式 + 固定 CDN 集合（`cdn.jsdelivr.net` / `picsum.photos` / `gaopengbin.github.io` / `esm.sh`）。`decideImageRequest` 已导出供单测（见 `test/ssrf-policy.test.js`，PASS 51/FAIL 0）。
+- **已知残余（非阻断 · 纵深防御）**：默认模式存在 DNS 重绑定 TOCTOU（决策期 DNS 解析到的公网地址与 Chromium 实际 fetch 时解析可能不同），代码注释已明确标注为"降低风险、非完全消除"。在需要最强保证的场景，设置 `WS_IMAGE_ALLOWLIST` 启用严格白名单模式即可彻底闭环。
 
 ### 文档 (Docs)
 - SKILL.md 版本升至 4.3.0，新增「v4.3 更新要点」；本 CHANGELOG 新增 [4.3.0] 段。
