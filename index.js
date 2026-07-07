@@ -160,6 +160,7 @@ function parseArgs() {
     chatText: null,
     verbose: false,
     silent: false,  // v4.0: 静默模式，供 auto.js 调用
+    syncTencentDocs: false,  // v4.4.1+: 生成后同步到腾讯文档
   };
 
   for (let i = 0; i < args.length; i++) {
@@ -181,6 +182,7 @@ function parseArgs() {
       case '--avatar-map': opts.avatarMap = next; i++; break;
       case '--verbose': case '-v': opts.verbose = true; break;
       case '--silent': opts.silent = true; break;  // v4.0: 静默模式
+      case '--sync-tencent-docs': opts.syncTencentDocs = true; break;
       case '--help': case '-h': printHelp(); process.exit(0);
     }
   }
@@ -254,6 +256,7 @@ function printHelp() {
   --other-color <hex>     他人气泡色（默认 #ffffff）
   --avatar-style <style>  头像风格（默认 avataaars⭐）⭐
   --avatar-map <map>      按角色指定风格 "张三:avataaars,李四:bottts"
+  --sync-tencent-docs     生成后同步到腾讯文档（导入就绪文档 + 结构化 payload；连接器连通后自动推送云端）
   -v, --verbose           显示详细日志 ⭐v3.3
   -h, --help              显示帮助
 
@@ -909,6 +912,31 @@ async function main() {
     }
     info(`🔧 红包/转账图标: SVG ✅`);
     info(`🖼️  图片消息: ${needsImageFill ? '自动填充随机图 ✅' : '指定URL ✅'}`);
+
+    // ── Step 9.5: 同步到腾讯文档 ──
+    if (opts.syncTencentDocs) {
+      try {
+        const { syncToTencentDocs } = require('./lib/sync-tencent-docs.js');
+        const sr = await syncToTencentDocs({
+          pngPath: opts.output,
+          transcript: chatText,
+          title: opts.contact || '微信聊天截图',
+          contact: opts.contact,
+        });
+        if (sr.ok) {
+          info(`\n☁️  腾讯文档同步: ${sr.mode === 'cloud' ? '已推送云端' : '已生成导入就绪文档'}`);
+          info(`   📄 payload: ${sr.target}`);
+          info(`   ℹ️  ${sr.message}`);
+          if (sr.mode !== 'cloud') {
+            info(`   💡 连接腾讯文档连接器（左侧面板一键授权）后重跑本命令即可自动推送云端。`);
+          }
+        } else {
+          info(`\n⚠️  腾讯文档同步未完成: ${sr.message}`);
+        }
+      } catch (e) {
+        info(`\n⚠️  腾讯文档同步异常: ${e.message}`);
+      }
+    }
 
   } catch (error) {
     console.error(`\n❌ 错误: ${error.message}`);

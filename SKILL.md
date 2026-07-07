@@ -1,8 +1,8 @@
 ---
 name: wechat-shot
-description: "微信截图王 — 生成逼真的微信聊天截图。支持文字/图片(OCR)/红包/转账/语音/长截图，自动头像生成，纯CSS图标。v4.1 起支持 --realism/--deai 去AI味自然度；v4.2 起支持 --llm 大模型生成模式（OpenAI 兼容，密钥零泄露+SSRF防护）；v4.3 修复 OCR 技能自动识别（不再写死技能ID）与生成内容去重，并并入浏览器端 SSRF 请求拦截；v4.4.1 新增状态栏全面可调（时间默认当前真实时间、--network 切换 WiFi/蜂窝 5G、--battery/--signal 渲染后强制生效）；v4.4 新增 PaddleOCR 本地 OCR 后端（无需 API Key，离线运行）。当用户需要制作微信对话截图、聊天记录长图、模拟微信聊天界面时使用。"
+description: "微信截图王 — 生成逼真的微信聊天截图。支持文字/图片(OCR)/红包/转账/语音/长截图，自动头像生成，纯CSS图标。v4.1 起支持 --realism/--deai 去AI味自然度；v4.2 起支持 --llm 大模型生成模式（OpenAI 兼容，密钥零泄露+SSRF防护）；v4.3 修复 OCR 技能自动识别（不再写死技能ID）与生成内容去重，并并入浏览器端 SSRF 请求拦截；v4.4.1 新增状态栏全面可调（时间默认当前真实时间、--network 切换 WiFi/蜂窝 5G、--battery/--signal 渲染后强制生效）；v4.4.2 新增腾讯文档同步（--sync-tencent-docs，生成后产出导入就绪文档+结构化payload，连接器连通后自动推送云端）与两天互动对话渲染；v4.4 新增 PaddleOCR 本地 OCR 后端（无需 API Key，离线运行）。当用户需要制作微信对话截图、聊天记录长图、模拟微信聊天界面时使用。"
 description_zh: "微信聊天截图生成器"
-version: 4.4.1
+version: 4.4.2
 allowed-tools:
   - Bash
   - Read
@@ -12,13 +12,15 @@ display_name: "微信截图王"
 visibility: "public"
 ---
 
-# 微信截图王 v4.4.1 (WeChat Shot)
+# 微信截图王 v4.4.2 (WeChat Shot)
 
 > 智能微信聊天截图工具。图片/文字输入 → 自动场景扩展（去 AI 味）→ 确认 → 长截图 → Excel记录 + 腾讯文档同步。
 
-## v4.4.1 更新要点
+## v4.4.2 更新要点
 
-- **状态栏全面可调（新增）**：手机时间默认改为当前真实时间（不再固定 12:02）；新增 `--network` 参数（`wifi` 默认 / `cellular` 蜂窝数据，状态栏显示「5G」）；`--battery` / `--signal` 在渲染后通过 DOM patch 强制生效；`auto.js` 补齐 `--battery` / `--signal` / `--network` 透传，两条入口参数通用。
+- **腾讯文档同步（新增 · `--sync-tencent-docs`）**：截图生成后自动产出「导入就绪」本地文档（内嵌截图 + 对话原文 + 元数据）与结构化 payload；腾讯文档连接器连通后由 Agent 自动推送云端。`index.js` / `auto.js` 双入口均支持该参数。
+- **两天互动对话渲染（新增）**：用 `**【日期 时间】**` 时间节点语法支持跨天双向对话（如「7月6日 15:30」「7月7日 09:12」），截图覆盖完整的来回互动而非单向留言。
+- **状态栏全面可调（v4.4.1）**：手机时间默认改为当前真实时间（不再固定 12:02）；新增 `--network` 参数（`wifi` 默认 / `cellular` 蜂窝数据，状态栏显示「5G」）；`--battery` / `--signal` 在渲染后通过 DOM patch 强制生效；`auto.js` 补齐 `--battery` / `--signal` / `--network` 透传，两条入口参数通用。
 - **PaddleOCR 本地 OCR 后端（v4.4 · 无需 API Key）**：OCR 链路在腾讯云 `tencentcloud-ocr` 之后新增第二优先级 `tryPaddleOcr()` → `scripts/paddle_ocr.py`，本地离线识别图片文字；Windows + Python 3.13 已验证，首字乱码/方块通过 7 层兼容性补丁修复。
 - **OCR 自动识别修复**（v4.3）：不再写死技能目录/文件名，自动扫描并调用 `tencentcloud-ocr` 技能的 `scripts/main.py`；未安装或缺少密钥时给出醒目提示并回退「通用随机话题」。
 - **生成内容去重**（v4.3）：同一对话内不再出现重复发言（压测 2400 次生成 0 重复）。

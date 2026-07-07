@@ -1,4 +1,4 @@
-# WeChat Shot v4.4.1
+# WeChat Shot v4.4.2
 
 > A CLI tool that generates realistic WeChat chat screenshots. Image/OCR or text input → auto scene expansion (with de-AI naturalness) → confirmation → long screenshot → Excel log + Tencent Docs sync.
 
@@ -9,6 +9,11 @@
 - New `--scene <key>` to force a scene (daily/funny/work/tech/finance/academic/history/zhihu).
 - Chat transcript passthrough: if `--text` is already `**Name**：` chat, it is adopted directly with light humanizing.
 - Tip: for the most lifelike result, let your AI assistant write the dialogue, then render it.
+
+## v4.4.2 — Tencent Docs sync + two-day interactive dialogue
+
+- New `--sync-tencent-docs`: after rendering, produces an import-ready local Tencent Doc (self-contained HTML with embedded screenshot + transcript) and a structured payload (`.tencent-docs.json`). When the Tencent Docs connector is connected (one-click authorize in the panel) or `TENCENT_DOCS_OPEN_TOKEN` is set, it auto-pushes to the cloud.
+- Chat text supports cross-day `**【date time】**` markers, so you can render multi-day, back-and-forth two-way conversations (no one-sided monologues).
 
 ## v4.4.1 — Status bar fully configurable
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * 微信截图王 v4.4.1 — 智能全流程自动化（含 --llm 大模型生成）
+ * 微信截图王 v4.4.2 — 智能全流程自动化（含 --llm 大模型生成）
  *
  * 用法:
  *   node auto.js --image ./photo.png              # 图片OCR → 扩展 → 确认 → 截图 → 记录
@@ -45,6 +45,7 @@ function parseArgs() {
     battery: undefined,
     signal: undefined,
     network: 'wifi',
+    syncTencentDocs: false,
     avatarStyle: 'avataaars',
     realism: 0.7,
     scene: null,
@@ -70,6 +71,7 @@ function parseArgs() {
       case '--battery': opts.battery = parseInt(next, 10); i++; break;
       case '--signal': opts.signal = parseInt(next, 10); i++; break;
       case '--network': opts.network = (next || 'wifi').toLowerCase(); i++; break;
+      case '--sync-tencent-docs': opts.syncTencentDocs = true; break;
       case '--avatar-style': opts.avatarStyle = next; i++; break;
       case '--realism': opts.realism = parseFloat(next); i++; break;
       case '--scene': opts.scene = next; i++; break;
@@ -96,7 +98,7 @@ function parseArgs() {
 function printHelp() {
   console.log(`
 ╔══════════════════════════════════════════════════════════╗
-║       微信截图王 v4.4.1 — 智能全流程自动化 (Auto)          ║
+║       微信截图王 v4.4.2 — 智能全流程自动化 (Auto)          ║
 ╚══════════════════════════════════════════════════════════╝
 
 用法: node auto.js [选项]
@@ -328,7 +330,10 @@ async function generateScreenshot(chatText, opts) {
   if (opts.network) {
     indexArgs.push('--network', opts.network);
   }
-  
+  if (opts.syncTencentDocs) {
+    indexArgs.push('--sync-tencent-docs');
+  }
+
   // 调用 index.js
   const indexScript = path.join(__dirname, 'index.js');
   
@@ -379,7 +384,7 @@ async function generateScreenshot(chatText, opts) {
 async function main() {
   const opts = parseArgs();
   
-  console.log('🚀 微信截图王 v4.4.1 — 智能全流程自动化');
+  console.log('🚀 微信截图王 v4.4.2 — 智能全流程自动化');
   console.log('═'.repeat(50));
   
   // ── Step 0-1: 读取输入 ──

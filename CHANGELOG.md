@@ -2,6 +2,15 @@
 
 所有重要变更记录于此。格式参考 [Keep a Changelog](https://keepachangelog.com/)。
 
+## [4.4.2] — 2026-07-07
+
+### 新增 (Added)
+- **腾讯文档同步（--sync-tencent-docs）**：生成截图后自动产出「导入就绪」本地腾讯文档（自包含 HTML，内嵌截图 + 对话原文）与结构化 payload（`.tencent-docs.json`）；连接腾讯文档连接器或配置 `TENCENT_DOCS_OPEN_TOKEN` 后自动推送云端。
+- **两天互动对话渲染**：聊天文本支持跨天 `**【日期 时间】**` 时间节点，配合 `--contact` 可渲染多日、有来有往的双向对话。
+
+### 修复 (Fixed)
+- `index.js` / `auto.js` 新增 `--sync-tencent-docs` 参数解析与透传。
+
 ## [4.4.1] — 2026-07-07
 
 ### 新增 (Added)

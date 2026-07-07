@@ -1,4 +1,4 @@
-# 微信截图王 v4.4.1 (WeChat Shot)
+# 微信截图王 v4.4.2 (WeChat Shot)
 
 > 智能微信聊天截图工具。支持图片 OCR / 文字输入，自动场景扩展，一键生成截图，本地 Excel 记录 + 腾讯文档同步。
 
@@ -74,6 +74,23 @@ node auto.js --text "我妈看到我买的两千块的羽绒服直接沉默了" 
 | 📶 **网络类型切换** | 新增 `--network wifi`（默认，保留 WiFi 弧形图标）/ `cellular`（蜂窝数据，状态栏显示「5G」） |
 | 🔋 **电量/信号可调** | `--battery 88` / `--signal 3`，渲染后通过 DOM patch 强制生效 |
 | 🔗 **双入口通用** | `auto.js` 补齐 `--battery` / `--signal` / `--network` 透传，`auto.js` 与 `index.js` 参数一致 |
+
+## 🆕 v4.4.2 新特性：腾讯文档同步 + 两天互动对话
+
+### ☁️ 同步到腾讯文档（`--sync-tencent-docs`）
+生成截图后自动：
+1. 产出「导入就绪」本地腾讯文档（自包含 HTML，内嵌截图 + 对话原文）；
+2. 产出结构化 payload（`<截图名>.tencent-docs.json`，含标题/图片路径/对话原文）；
+3. 若连接了腾讯文档连接器（左侧面板一键授权）或配置了 `TENCENT_DOCS_OPEN_TOKEN`，自动推送云端。
+
+```bash
+node index.js --input chat.txt --long --sync-tencent-docs
+```
+
+> 说明：真正的云端推送依赖腾讯文档账号授权。未连接时，会生成本地「导入就绪」文档，连接后重跑即可自动推送。
+
+### 💬 两天互动对话
+聊天文本用 `**【日期 时间】**` 标记时间节点即可跨天，配合 `--contact` 渲染多日、有来有往的双向对话（避免单向留言）。
 
 ## 🆕 v4.4 新特性：PaddleOCR 本地 OCR 后端（无需 API Key）
 
