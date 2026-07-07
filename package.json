@@ -1,6 +1,6 @@
 {
   "name": "wechat-shot",
-  "version": "4.4.0",
+  "version": "4.4.1",
   "description": "智能微信聊天截图工具 — 支持图片OCR/文字输入，自动场景扩展，一键生成截图，Excel记录+腾讯文档同步",
   "main": "index.js",
   "bin": {

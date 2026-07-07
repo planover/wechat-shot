@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * 微信截图王 v4.4 — 智能全流程自动化（含 --llm 大模型生成）
+ * 微信截图王 v4.4.1 — 智能全流程自动化（含 --llm 大模型生成）
  *
  * 用法:
  *   node auto.js --image ./photo.png              # 图片OCR → 扩展 → 确认 → 截图 → 记录
@@ -42,6 +42,9 @@ function parseArgs() {
     verbose: false,
     contact: '',
     time: null,
+    battery: undefined,
+    signal: undefined,
+    network: 'wifi',
     avatarStyle: 'avataaars',
     realism: 0.7,
     scene: null,
@@ -64,6 +67,9 @@ function parseArgs() {
       case '--verbose': case '-v': opts.verbose = true; break;
       case '--contact': opts.contact = next; i++; break;
       case '--time': opts.time = next; i++; break;
+      case '--battery': opts.battery = parseInt(next, 10); i++; break;
+      case '--signal': opts.signal = parseInt(next, 10); i++; break;
+      case '--network': opts.network = (next || 'wifi').toLowerCase(); i++; break;
       case '--avatar-style': opts.avatarStyle = next; i++; break;
       case '--realism': opts.realism = parseFloat(next); i++; break;
       case '--scene': opts.scene = next; i++; break;
@@ -90,7 +96,7 @@ function parseArgs() {
 function printHelp() {
   console.log(`
 ╔══════════════════════════════════════════════════════════╗
-║       微信截图王 v4.4 — 智能全流程自动化 (Auto)          ║
+║       微信截图王 v4.4.1 — 智能全流程自动化 (Auto)          ║
 ╚══════════════════════════════════════════════════════════╝
 
 用法: node auto.js [选项]
@@ -105,7 +111,10 @@ function printHelp() {
   --no-confirm          不显示确认提示，直接生成
   --no-record           不写入 Excel 记录
   --contact <name>      群聊名称（自动推断时可不填）
-  --time <HH:MM>        手机时间（自动随机时可不填）
+  --time <HH:MM>        手机时间（默认当前真实时间，不再卡 12:02）
+  --battery <0-100>     电量百分比（默认 60）
+  --signal <1-4>        信号格数（默认 4）
+  --network <wifi|cellular>  状态栏网络类型：wifi(默认) 或 蜂窝数据(显示 5G)
   --avatar-style <style> 头像风格（默认 avataaars）
   --realism <0-1>       自然度 0=干净 1=很随意（默认 0.7）
   --natural / --deai    等价于 --realism 0.85，最大化"去AI味"
@@ -310,6 +319,15 @@ async function generateScreenshot(chatText, opts) {
   if (opts.time) {
     indexArgs.push('--time', opts.time);
   }
+  if (opts.battery !== undefined && !isNaN(opts.battery)) {
+    indexArgs.push('--battery', String(opts.battery));
+  }
+  if (opts.signal !== undefined && !isNaN(opts.signal)) {
+    indexArgs.push('--signal', String(opts.signal));
+  }
+  if (opts.network) {
+    indexArgs.push('--network', opts.network);
+  }
   
   // 调用 index.js
   const indexScript = path.join(__dirname, 'index.js');
@@ -361,7 +379,7 @@ async function generateScreenshot(chatText, opts) {
 async function main() {
   const opts = parseArgs();
   
-  console.log('🚀 微信截图王 v4.4 — 智能全流程自动化');
+  console.log('🚀 微信截图王 v4.4.1 — 智能全流程自动化');
   console.log('═'.repeat(50));
   
   // ── Step 0-1: 读取输入 ──

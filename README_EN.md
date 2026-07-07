@@ -1,4 +1,4 @@
-# WeChat Shot v4.4
+# WeChat Shot v4.4.1
 
 > A CLI tool that generates realistic WeChat chat screenshots. Image/OCR or text input → auto scene expansion (with de-AI naturalness) → confirmation → long screenshot → Excel log + Tencent Docs sync.
 
@@ -9,6 +9,13 @@
 - New `--scene <key>` to force a scene (daily/funny/work/tech/finance/academic/history/zhihu).
 - Chat transcript passthrough: if `--text` is already `**Name**：` chat, it is adopted directly with light humanizing.
 - Tip: for the most lifelike result, let your AI assistant write the dialogue, then render it.
+
+## v4.4.1 — Status bar fully configurable
+
+- Phone time now defaults to the real current time (no longer hardcoded `12:02`); override with `--time 10:29`.
+- New `--network wifi` (default) / `cellular` (shows "5G" in the status bar).
+- `--battery` / `--signal` are now forced onto the rendered DOM after paint.
+- `auto.js` now forwards `--battery` / `--signal` / `--network` to `index.js` — both entry points share the same flags.
 
 ## v4.4 — PaddleOCR local OCR backend (no API key)
 

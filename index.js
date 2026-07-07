@@ -147,10 +147,11 @@ function parseArgs() {
     input: null,
     output: null,
     long: false,
-    time: '12:02',
+    time: getCurrentHHMM(),   // 默认用当前真实时间，避免永远卡在 12:02
     contact: '',
     battery: 60,
     signal: 4,
+    network: 'wifi',   // 'wifi' | 'cellular'(蜂窝数据/5G)
     unread: 1,
     selfColor: '#95ec69',
     otherColor: '#ffffff',
@@ -172,6 +173,7 @@ function parseArgs() {
       case '--contact': opts.contact = next; i++; break;
       case '--battery': opts.battery = parseInt(next, 10); i++; break;
       case '--signal': opts.signal = parseInt(next, 10); i++; break;
+      case '--network': opts.network = (next || 'wifi').toLowerCase(); i++; break;
       case '--unread': opts.unread = parseInt(next, 10); i++; break;
       case '--self-color': opts.selfColor = next; i++; break;
       case '--other-color': opts.otherColor = next; i++; break;
@@ -242,10 +244,11 @@ function printHelp() {
   -i, --input <file>      聊天记录文本文件（不指定则使用内置示例）
   -o, --output <file>     输出图片路径
   -l, --long              生成长截图（完整聊天记录）⭐v3.3
-  --time <HH:MM>          手机时间（默认 12:02）
+  --time <HH:MM>          手机时间（默认：当前真实时间，不再卡 12:02）
   --contact <name>        聊天标题/群聊名称 ⭐
   --battery <0-100>       电量百分比（默认 60）
   --signal <1-4>          信号格数（默认 4）
+  --network <wifi|cellular>  状态栏网络类型：wifi(默认) 或 蜂窝数据(显示 5G)
   --unread <num>          未读消息数（默认 1）
   --self-color <hex>      自己气泡色（默认 #95ec69）
   --other-color <hex>     他人气泡色（默认 #ffffff）
@@ -603,6 +606,10 @@ async function main() {
     log('应用外观设置...');
     await applySettings(page, opts);
 
+    // ── Step 4.5: 直接修补渲染后的状态栏（时间/电量/信号/网络）──
+    log('修补状态栏 (时间/电量/信号/网络)...');
+    await patchStatusBar(page, opts);
+
     // ── Step 5: 等待资源加载 ──
     log('等待资源加载...');
     await page.evaluate(() => {
@@ -914,6 +921,81 @@ async function main() {
   } finally {
     await browser.close();
   }
+}
+
+// ═══════════════════════════════════════════
+//  当前时间 HH:MM（用于状态栏默认时间）
+// ═══════════════════════════════════════════
+function getCurrentHHMM() {
+  const d = new Date();
+  const hh = String(d.getHours()).padStart(2, '0');
+  const mm = String(d.getMinutes()).padStart(2, '0');
+  return `${hh}:${mm}`;
+}
+
+// ═══════════════════════════════════════════
+//  直接修补渲染后的状态栏 DOM
+//  绕过网页自身的事件绑定，确保时间/电量/信号/网络类型
+//  一定生效（旧 applySettings 依赖的表单控件在改版后不稳定）
+// ═══════════════════════════════════════════
+async function patchStatusBar(page, opts) {
+  const network = netSafe(opts.network);
+  await page.evaluate((settings) => {
+    const time = settings.time || '';
+    const battery = Math.max(0, Math.min(100, Number(settings.battery) || 60));
+    const signal = Math.max(0, Math.min(4, Number(settings.signal) || 4));
+    const net = (settings.network || 'wifi').toLowerCase();
+
+    // 1) 时间
+    const timeEl = document.querySelector('.wc-time');
+    if (timeEl && time) timeEl.textContent = time;
+
+    // 2) 电量（视觉条 + 百分比文本）
+    const batteryEl = document.querySelector('.wc-battery-inner');
+    if (batteryEl) batteryEl.style.width = battery + '%';
+    // 电量百分比文本：状态栏里匹配纯数字的文本节点
+    const statusBar = document.querySelector('.wc-status-bar');
+    if (statusBar) {
+      const walker = document.createTreeWalker(statusBar, NodeFilter.SHOW_TEXT, null);
+      while (walker.nextNode()) {
+        if (/^\d{1,3}$/.test(walker.currentNode.textContent.trim())) {
+          walker.currentNode.textContent = String(battery);
+          break;
+        }
+      }
+    }
+
+    // 3) 信号格（4 个 rect，按 x 升序；左侧(矮)的 signal 个为高亮）
+    const group = document.querySelector('.wc-signal-group');
+    if (group) {
+      const svg = group.querySelector('svg');
+      if (svg) {
+        const rects = Array.from(svg.querySelectorAll('rect'))
+          .sort((a, b) => parseFloat(a.getAttribute('x')) - parseFloat(b.getAttribute('x')));
+        const activeCount = Math.max(0, Math.min(rects.length, signal));
+        rects.forEach((r, idx) => {
+          const active = idx < activeCount;
+          r.setAttribute('fill', active ? '#000' : '#c8c8c8');
+        });
+      }
+
+      // 4) 网络类型：wifi 保留弧形 svg；cellular 把 WiFi svg 换成 "5G" 文本
+      const svgs = group.querySelectorAll('svg');
+      if (net === 'cellular' && svgs.length >= 2) {
+        const wifiSvg = svgs[1];
+        const span = document.createElement('span');
+        span.textContent = '5G';
+        span.style.cssText = 'font-size:15px;font-weight:700;color:#000;' +
+          'font-family:-apple-system,BlinkMacSystemFont,"PingFang SC",sans-serif;margin-left:1px;';
+        if (wifiSvg.parentNode) wifiSvg.parentNode.replaceChild(span, wifiSvg);
+      }
+    }
+  }, { time: opts.time, battery: opts.battery, signal: opts.signal, network });
+  await new Promise(r => setTimeout(r, 300));
+}
+
+function netSafe(v) {
+  return (v || 'wifi').toLowerCase() === 'cellular' ? 'cellular' : 'wifi';
 }
 
 // ═══════════════════════════════════════════

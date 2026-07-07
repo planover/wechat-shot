@@ -2,6 +2,15 @@
 
 所有重要变更记录于此。格式参考 [Keep a Changelog](https://keepachangelog.com/)。
 
+## [4.4.1] — 2026-07-07
+
+### 新增 (Added)
+- **状态栏全面可调**：手机时间默认改为当前真实时间（不再固定 `12:02`），`--time` 可覆盖；新增 `--network` 参数（`wifi` / `cellular`，蜂窝模式状态栏显示「5G」）；`--battery` / `--signal` 在渲染后通过 DOM patch 强制生效。
+- `auto.js` 补齐 `--battery` / `--signal` / `--network` 参数解析与转发，`auto.js` 与 `index.js` 入口参数完全通用。
+
+### 修复 (Fixed)
+- 修复状态栏时间永远为默认 `12:02`、网络类型不可切换的问题（`index.js` 旧 `applySettings` 选择器已对改版后的网页失效，改为渲染后直接操作 DOM）。
+
 ## [4.4.0] — 2026-07-07
 
 ### 新增 (Added)
