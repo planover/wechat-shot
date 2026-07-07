@@ -24,6 +24,28 @@ const https = require('https');
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
+const dns = require('dns');
+const { isBlockedHostname } = require('./lib/ssrf');
+
+// ── 浏览器侧 SSRF 防护配置 ──
+// 可选严格白名单：WS_IMAGE_ALLOWLIST 设为逗号分隔主机名时，仅放行白名单 + 固定 CDN 集合；
+// 未设置时放行所有非阻断的公网 http(s) 请求（保留用户自定义图片 URL 功能，仅拦内网）。
+const IMAGE_ALLOWLIST = (() => {
+  const raw = process.env.WS_IMAGE_ALLOWLIST;
+  if (!raw) return null;
+  const set = new Set(raw.split(',').map((s) => s.trim().toLowerCase()).filter(Boolean));
+  return set.size ? set : null;
+})();
+// 工具自身运行所依赖的固定 CDN（非用户可控，始终放行；含渲染库 esm.sh）。
+// 注意：esm.sh 是 html-to-image / html2canvas 动态 import 的来源，必须放行否则截图完全失败。
+const FIXED_CDN_HOSTS = new Set([
+  'cdn.jsdelivr.net',     // Twemoji SVG
+  'picsum.photos',        // [图片] 占位随机图
+  'gaopengbin.github.io', // 渲染器页面本体
+  'esm.sh',               // 截图库 html-to-image / html2canvas 动态 import
+]);
+// 单次运行内 DNS 解析结果缓存（仅记录是否命中内网），减少重复 lookup 的延迟
+const dnsCache = new Map();
 
 // ═══════════════════════════════════════════
 //  内置示例对话
@@ -285,6 +307,151 @@ function preprocessChatText(text) {
 }
 
 /**
+ * 浏览器侧 SSRF 守卫：拦截 headless Chromium 发起的请求。
+ *
+ * 触发入口：聊天文本中的 [图片]URL 会让渲染器把其作为 <img src> 让 Chromium fetch，
+ * 攻击者可借此访问内网 / 云元数据（如 [图片]http://169.254.169.254/latest/meta-data/）。
+ *
+ * 判定顺序：
+ *  1. data:/blob: → 直接放行（注入头像/图标用，无需拦截）
+ *  2. 非 http/https scheme（file:/ftp:/gopher: 等）→ abort
+ *  3. isBlockedHostname → abort（内网/环回/链路本地/云元数据/IPv4-mapped IPv6）
+ *  4. 若设置了 WS_IMAGE_ALLOWLIST：仅放行白名单或固定 CDN 集合，否则 abort
+ *  5. 否则（默认）：对公网主机名做一次 DNS 解析，解析到内网 IP 则 abort（缓解 DNS 重绑定，
+ *     存在 TOCTOU，仅降低风险）；解析失败则保守放行，避免阻塞截图流程
+ *  6. 其余 → continue
+ *
+ * 健壮性：每个请求恰好调用一次 continue/abort；用 try/catch + isInterceptResolutionHandled
+ * 兜底，避免 "Request is already handled" 异常导致整页崩溃。被 abort 的请求使用 'failed'
+ * 错误码，确保 <img> 触发 onerror（Step 5 的 img.complete/onerror 等待逻辑不会永久挂起）。
+ */
+/**
+ * 纯函数：判定一个图片请求应当 continue 还是 abort。
+ * 从 onRequest 中提取，便于测试注入假 DNS 解析器（模拟 DNS 重绑定）做独立验证。
+ *
+ * options:
+ *   allowlist?: Set<string> | null  —— 严格白名单模式；为 null/undefined 时走默认（仅拦内网 + DNS 复核）
+ *   resolveDns?: (host) => Promise<Array<{address, family}>> —— 注入假解析器；缺省用真实 dns.promises.lookup（3s 超时 + dnsCache 缓存）
+ *
+ * 判定顺序（与原 onRequest 行为完全一致）：
+ *   1. data:/blob: → continue（注入头像/图标用）
+ *   2. 非法 URL / 非 http(s) scheme（file:/ftp:/gopher: 等）→ abort
+ *   3. isBlockedHostname（内网/环回/链路本地/云元数据/IPv4-mapped IPv6）→ abort
+ *   4. 严格白名单：非白名单且非固定 CDN → abort，否则 continue
+ *   5. 默认：固定 CDN 直接 continue；其余公网主机名做 DNS 复核，解析到内网则 abort
+ *   6. 其余 → continue
+ */
+async function decideImageRequest(urlString, options = {}) {
+  const allowlist = (options.allowlist !== undefined) ? options.allowlist : IMAGE_ALLOWLIST;
+  const resolveDns = options.resolveDns || realResolveDns;
+
+  // 1. 注入用 data/blob（如 DiceBear 头像、SVG 图标）直接放行
+  if (typeof urlString === 'string' && (urlString.startsWith('data:') || urlString.startsWith('blob:'))) {
+    return 'continue';
+  }
+
+  // 2. 解析 URL；非法 URL 直接拦截
+  let u;
+  try {
+    u = new URL(urlString);
+  } catch {
+    return 'abort';
+  }
+
+  // 3. 仅允许 http/https；拦 file:/ftp:/gopher: 等危险 scheme
+  if (u.protocol !== 'http:' && u.protocol !== 'https:') {
+    return 'abort';
+  }
+
+  const host = u.hostname.toLowerCase();
+
+  // 4. 阻断内网/环回/链路本地（含 IPv4-mapped IPv6）
+  if (isBlockedHostname(u.hostname)) {
+    return 'abort';
+  }
+
+  // 5. 可选严格白名单模式
+  if (allowlist) {
+    if (!allowlist.has(host) && !FIXED_CDN_HOSTS.has(host)) {
+      return 'abort';
+    }
+    return 'continue';
+  }
+
+  // 6. 默认模式：固定 CDN 直接放行；其余公网主机名做 DNS 解析复核，缓解 DNS 重绑定
+  if (!FIXED_CDN_HOSTS.has(host)) {
+    let addrs = [];
+    try {
+      addrs = await resolveDns(host);
+    } catch {
+      addrs = [];
+    }
+    if (Array.isArray(addrs) && addrs.some((a) => isBlockedHostname(a && a.address))) {
+      return 'abort';
+    }
+  }
+
+  // 7. 放行
+  return 'continue';
+}
+
+// 真实 DNS 解析（带 3s 超时 + 进程内缓存）。返回地址数组；失败/超时返回 []（保守放行，不阻塞截图）。
+async function realResolveDns(host) {
+  const cached = dnsCache.get(host);
+  if (cached !== undefined) return cached;
+  let addrs = [];
+  try {
+    const { lookup } = dns.promises;
+    const resolved = await Promise.race([
+      lookup(host, { all: true }),
+      new Promise((_, rej) => setTimeout(() => rej(new Error('dns-timeout')), 3000)),
+    ]);
+    addrs = Array.isArray(resolved) ? resolved : [resolved];
+  } catch {
+    addrs = [];
+  }
+  dnsCache.set(host, addrs);
+  return addrs;
+}
+
+/**
+ * 浏览器侧 SSRF 守卫（薄包装）：拦截 headless Chromium 发起的请求。
+ * 判定逻辑全部在 decideImageRequest 中，本函数只负责执行 continue/abort 并保证每个请求恰好处理一次。
+ * 被 abort 的请求使用 'failed' 错误码，确保 <img> 触发 onerror（Step 5 的 img.onerror 等待不会永久挂起）。
+ */
+async function onRequest(req) {
+  const safeContinue = () => {
+    if (req.isInterceptResolutionHandled && req.isInterceptResolutionHandled()) return;
+    req.continue().catch(() => {});
+  };
+  const safeAbort = () => {
+    if (req.isInterceptResolutionHandled && req.isInterceptResolutionHandled()) return;
+    req.abort('failed').catch(() => {});
+  };
+  try {
+    const decision = await decideImageRequest(req.url());
+    if (decision === 'abort') {
+      try {
+        const u = new URL(req.url());
+        if (u.protocol === 'http:' || u.protocol === 'https:') {
+          console.warn('⚠️ 拦截图片请求(SSRF/白名单):', u.hostname);
+        } else {
+          console.warn('⚠️ 拦截非 http(s) 图片请求:', u.protocol);
+        }
+      } catch {
+        console.warn('⚠️ 拦截非法图片请求URL:', String(req.url()).slice(0, 80));
+      }
+      safeAbort();
+    } else {
+      safeContinue();
+    }
+  } catch (err) {
+    // 兜底：任何异常都尝试继续请求，避免整页请求挂起导致截图失败
+    try { safeContinue(); } catch {}
+  }
+}
+
+/**
  * 获取 DiceBear 头像 PNG（不是 SVG），更可靠
  * 使用 PNG 格式避免 SVG 渲染兼容性问题
  */
@@ -376,6 +543,12 @@ async function main() {
 
   const page = await browser.newPage();
   await page.setViewport({ width: 1440, height: 900 });
+
+  // ── SSRF 防护：浏览器侧请求拦截 ──
+  // 拦截 headless Chromium 发起的所有请求，阻断对内网/环回/云元数据/非白名单地址的访问
+  // （用户可在聊天文本写入 [图片]http://169.254.169.254/... 等触发 SSRF）。
+  await page.setRequestInterception(true);
+  page.on('request', onRequest);
 
   await page._client().send('Page.setDownloadBehavior', {
     behavior: 'allow',
@@ -854,7 +1027,13 @@ async function fallbackScreenshot(page, opts) {
 // ═══════════════════════════════════════════
 //  入口
 // ═══════════════════════════════════════════
-main().catch(err => {
-  console.error('❌ 未捕获错误:', err.message);
-  process.exit(1);
-});
+if (require.main === module) {
+  main().catch(err => {
+    console.error('❌ 未捕获错误:', err.message);
+    process.exit(1);
+  });
+}
+
+// 导出纯函数供测试（test/ssrf-policy.test.js）注入假 DNS 解析器做独立验证；
+// 不影响 auto.js 通过子进程调用本文件（CLI 入口仍由 require.main === module 守卫）。
+module.exports = { decideImageRequest, onRequest };

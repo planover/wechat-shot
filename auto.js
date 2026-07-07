@@ -153,47 +153,68 @@ function askUser(question) {
 }
 
 // ═══════════════════════════════════════════
-//  OCR 识别（调用 tencentcloud-ocr skill）
+//  OCR 识别（调用 tencentcloud-ocr skill 的 scripts/main.py）
 // ═══════════════════════════════════════════
+// 定位 tencentcloud-ocr 技能的 main.py：向上一层即 <skills> 目录，按 SKILL.md 内容识别，避免写死技能 ID
+function findOcrMainPy() {
+  const skillsDir = path.join(__dirname, '..');
+  const known = path.join(skillsDir, 'skill_2059984237344256000', 'scripts', 'main.py');
+  if (fs.existsSync(known)) return known;
+  try {
+    for (const name of fs.readdirSync(skillsDir)) {
+      const py = path.join(skillsDir, name, 'scripts', 'main.py');
+      if (!fs.existsSync(py)) continue;
+      const sk = path.join(skillsDir, name, 'SKILL.md');
+      if (fs.existsSync(sk) && /tencentcloud-ocr|通用文字识别|GeneralAccurateOCR/i.test(fs.readFileSync(sk, 'utf-8'))) {
+        return py;
+      }
+    }
+  } catch { /* ignore */ }
+  return null;
+}
+
 async function ocrImage(imagePath) {
   console.log('🔍 正在进行 OCR 识别...');
-  
+
   if (!fs.existsSync(imagePath)) {
     throw new Error(`图片文件不存在: ${imagePath}`);
   }
 
   try {
-    // 尝试使用本地 OCR 脚本
-    const ocrScript = path.join(__dirname, '..', '..', 'skill_2059984237344256000', 'ocr.js');
-    
-    if (fs.existsSync(ocrScript)) {
-      const result = execSync(`node "${ocrScript}" "${imagePath}"`, {
+    const ocrPy = findOcrMainPy();
+    const hasKeys = process.env.TENCENTCLOUD_SECRET_ID && process.env.TENCENTCLOUD_SECRET_KEY;
+    const pyBin = process.platform === 'win32' ? 'python' : 'python3';
+
+    // 仅当技能存在且已配置腾讯云密钥时才真正调用 OCR
+    if (ocrPy && hasKeys) {
+      const result = execSync(`"${pyBin}" "${ocrPy}" --image-base64 "${imagePath}"`, {
         encoding: 'utf-8',
-        timeout: 60000,
+        timeout: 90000,
         stdio: ['pipe', 'pipe', 'pipe'],
+        maxBuffer: 10 * 1024 * 1024,
       });
-      
-      // 尝试解析 OCR 结果
       try {
         const parsed = JSON.parse(result);
-        if (parsed.text) return parsed.text;
-        if (parsed.content) return parsed.content;
-        return result.trim();
+        const text = (parsed.raw_text || parsed.text || parsed.content || '').trim();
+        if (text) return text;
+        console.warn('⚠️ OCR 返回为空（图片中可能没有文字）');
       } catch {
-        return result.trim();
+        if (result.trim()) return result.trim();
       }
+    } else if (ocrPy && !hasKeys) {
+      console.warn('⚠️ 未配置 TENCENTCLOUD_SECRET_ID / TENCENTCLOUD_SECRET_KEY，跳过 OCR');
     }
-    
-    // 如果没有 OCR 脚本，给出清晰提示，并用兜底话题生成
-    console.log('⚠️ 未检测到 OCR 脚本（tencentcloud-ocr），改用通用话题生成');
-    console.log('   提示：想基于图片文字生成，请先安装 tencentcloud-ocr 技能，或改用 --text "你的描述"');
-    return `[图片: ${path.basename(imagePath)}]`;
-    
-  } catch (err) {
-    console.warn(`⚠️ OCR 识别失败: ${err.message}`);
-    console.log('改用通用话题生成');
-    return `[图片: ${path.basename(imagePath)}]`;
+  } catch (e) {
+    console.warn(`⚠️ OCR 执行失败: ${e.message}`);
   }
+
+  // ── 回落：未安装 OCR 技能 / 缺少密钥 / 执行失败 ──
+  console.log('');
+  console.log('🔴 OCR 未启用：未找到 tencentcloud-ocr 技能或缺少密钥，已改用「通用随机话题」生成。');
+  console.log('   ⚠️ 生成内容仅风格/场景相关，与图片本身无关。');
+  console.log('   💡 如需贴合图片，请用 --text "图片里的文字或描述" 手动输入。');
+  console.log('');
+  return `[图片: ${path.basename(imagePath)}]`;
 }
 
 // ═══════════════════════════════════════════

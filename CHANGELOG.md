@@ -2,6 +2,20 @@
 
 所有重要变更记录于此。格式参考 [Keep a Changelog](https://keepachangelog.com/)。
 
+## [4.3.0] — 2026-07-06
+
+### 修复 (Fixed)
+- **OCR 路径写死导致永远失效（CRITICAL-1）**：`auto.js` 原写死 `skill_2059984237344256000/ocr.js`（目录深度与文件名均错，真实技能入口为 `scripts/main.py`），导致 OCR 永远失败、生成内容与图片无关（如知乎截图却生成"猫会自己开门"）。改为 `findOcrMainPy()` 动态扫描 `<skills>/<name>/scripts/main.py` 并按 SKILL.md 内容识别 `tencentcloud-ocr`；仅当技能存在且已配置 `TENCENTCLOUD_SECRET_ID`/`TENCENTCLOUD_SECRET_KEY` 时才调用，否则显示 🔴 醒目警告并回退「通用随机话题」，引导用 `--text` 手动输入。
+- **生成内容重复（CRITICAL-2）**：`lib/expand.js` 新增 `pickUnique(rng, arr, used)` + 共享 `used` 集合 + `GENERIC_FILLERS` 兜底池，所有发言 / 短回应 / 红包 / 转账 / 图片 / 语音均去重；同一对话内不再出现相同句子。压测 2400 次生成 0 重复。
+- **知乎场景语料池过小（MAJOR-4）**：`zhihu` 场景 open/react/question/comment/close 由 6/5/5/5/4 扩充至 8/12/11/11/8，新增角色「吃瓜群众」「理性派」，进一步降低重复率、提升多样性。
+- **OCR 缺失回退 UX（MAJOR-3）**：未启用 OCR 时输出醒目 🔴 提示，明确告知"生成内容仅风格/场景相关，与图片本身无关"，并引导用 `--text` 手动输入贴合内容。
+
+### 安全 (Security)
+- **P2 浏览器端 SSRF 白名单并入**：`index.js` 引入 `page.setRequestInterception(true)` + `onRequest`，调用共享 `lib/ssrf.js` 的 `isBlockedHostname` 拦截 `[图片]URL` 触发的内部 / 环回 / 链路本地（含云元数据 169.254）/ IPv4-mapped IPv6 地址请求；可选 `WS_IMAGE_ALLOWLIST` 严格模式 + 固定 CDN 集合（`cdn.jsdelivr.net` / `picsum.photos` / `gaopengbin.github.io` / `esm.sh`）。`decideImageRequest` 已导出供单测。
+
+### 文档 (Docs)
+- SKILL.md 版本升至 4.3.0，新增「v4.3 更新要点」；本 CHANGELOG 新增 [4.3.0] 段。
+
 ## [4.2.0] — 2026-07-06
 
 ### 新增 (Added)
