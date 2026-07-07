@@ -24,6 +24,7 @@ const { addRecord, syncToTencentDocs } = require('./lib/record');
 const { execSync, spawn } = require('child_process');
 const fs = require('fs');
 const path = require('path');
+const os = require('os');
 const readline = require('readline');
 
 // ═══════════════════════════════════════════
@@ -173,6 +174,46 @@ function findOcrMainPy() {
   return null;
 }
 
+// ═══════════════════════════════════════════
+//  PaddleOCR 本地识别（无需密钥，纯本地推理）
+// ═══════════════════════════════════════════
+// 定位 venv python（优先 managed venv，其次系统 python）
+function findPaddleOcrPython() {
+  // 1. managed venv
+  const venvPy = path.join(os.homedir(), '.workbuddy', 'binaries', 'python', 'envs', 'default', 'Scripts', 'python.exe');
+  if (fs.existsSync(venvPy)) return venvPy;
+  // 2. 系统 python（用户可能全局装了 paddleocr）
+  const sysBin = process.platform === 'win32' ? 'python' : 'python3';
+  try {
+    execSync(`"${sysBin}" -c "import paddleocr"`, { stdio: 'pipe', timeout: 5000 });
+    return sysBin;
+  } catch { /* not installed globally */ }
+  return null;
+}
+
+// 调用 scripts/paddle_ocr.py 做本地 OCR
+function tryPaddleOcr(imagePath) {
+  const pyBin = findPaddleOcrPython();
+  if (!pyBin) return null;
+  const script = path.join(__dirname, 'scripts', 'paddle_ocr.py');
+  if (!fs.existsSync(script)) return null;
+  try {
+    const result = execSync(`"${pyBin}" "${script}" --image "${imagePath}"`, {
+      encoding: 'utf-8',
+      timeout: 120000, // 首次运行需下载模型，给足时间
+      stdio: ['pipe', 'pipe', 'pipe'],
+      maxBuffer: 20 * 1024 * 1024,
+    });
+    const parsed = JSON.parse(result);
+    const text = (parsed.raw_text || '').trim();
+    if (text) return text;
+    console.warn('⚠️ PaddleOCR 返回为空（图片中可能没有文字）');
+  } catch (e) {
+    console.warn(`⚠️ PaddleOCR 执行失败: ${e.message}`);
+  }
+  return null;
+}
+
 async function ocrImage(imagePath) {
   console.log('🔍 正在进行 OCR 识别...');
 
@@ -206,6 +247,14 @@ async function ocrImage(imagePath) {
     }
   } catch (e) {
     console.warn(`⚠️ OCR 执行失败: ${e.message}`);
+  }
+
+  // ── 第二优先级：PaddleOCR 本地识别（无需密钥）──
+  console.log('🔄 尝试 PaddleOCR 本地识别...');
+  const paddleText = tryPaddleOcr(imagePath);
+  if (paddleText) {
+    console.log('✅ PaddleOCR 识别成功');
+    return paddleText;
   }
 
   // ── 回落：未安装 OCR 技能 / 缺少密钥 / 执行失败 ──
