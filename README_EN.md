@@ -1,4 +1,4 @@
-# WeChat Shot v4.1
+# WeChat Shot v4.3
 
 > A CLI tool that generates realistic WeChat chat screenshots. Image/OCR or text input → auto scene expansion (with de-AI naturalness) → confirmation → long screenshot → Excel log + Tencent Docs sync.
 
