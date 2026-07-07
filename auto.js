@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * 微信截图王 v4.3 — 智能全流程自动化（含 --llm 大模型生成）
+ * 微信截图王 v4.4 — 智能全流程自动化（含 --llm 大模型生成）
  *
  * 用法:
  *   node auto.js --image ./photo.png              # 图片OCR → 扩展 → 确认 → 截图 → 记录
@@ -90,7 +90,7 @@ function parseArgs() {
 function printHelp() {
   console.log(`
 ╔══════════════════════════════════════════════════════════╗
-║       微信截图王 v4.3 — 智能全流程自动化 (Auto)          ║
+║       微信截图王 v4.4 — 智能全流程自动化 (Auto)          ║
 ╚══════════════════════════════════════════════════════════╝
 
 用法: node auto.js [选项]
@@ -361,7 +361,7 @@ async function generateScreenshot(chatText, opts) {
 async function main() {
   const opts = parseArgs();
   
-  console.log('🚀 微信截图王 v4.3 — 智能全流程自动化');
+  console.log('🚀 微信截图王 v4.4 — 智能全流程自动化');
   console.log('═'.repeat(50));
   
   // ── Step 0-1: 读取输入 ──

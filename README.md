@@ -1,4 +1,4 @@
-# 微信截图王 v4.3 (WeChat Shot)
+# 微信截图王 v4.4 (WeChat Shot)
 
 > 智能微信聊天截图工具。支持图片 OCR / 文字输入，自动场景扩展，一键生成截图，本地 Excel 记录 + 腾讯文档同步。
 
@@ -63,6 +63,23 @@ node auto.js --text "我妈看到我买的两千块的羽绒服直接沉默了" 
 | 🔍 OCR 自动识别 | `auto.js` 不再写死技能目录/文件名，自动扫描并调用 `tencentcloud-ocr` 的 `scripts/main.py`；未安装或缺少密钥时给出醒目提示并回退「通用随机话题」，避免生成与图片无关的内容 |
 | 🔁 内容去重 | `lib/expand.js` 新增去重采样，同一对话内不再出现重复发言（压测 4000 次 0 重复）；知乎场景语料扩充至 8/12/11/11/8 |
 | 🛡️ 浏览器侧 SSRF | 渲染期对图片请求做内网/环回/云元数据地址拦截，可选 `WS_IMAGE_ALLOWLIST` 严格白名单模式（详见 `test/ssrf-policy.test.js`，PASS 51/FAIL 0） |
+
+## 🆕 v4.4 新特性：PaddleOCR 本地 OCR 后端（无需 API Key）
+
+v4.3 的 OCR 依赖腾讯云 `tencentcloud-ocr`（需配置 `TENCENTCLOUD_SECRET_ID/KEY`）。v4.4 在 OCR 链路新增第二优先级 **PaddleOCR 本地引擎**，无需任何密钥、纯离线运行。
+
+| 能力 | 说明 |
+|------|------|
+| 🔡 **本地 OCR** | 自动探测 Python 环境 → 调用 `scripts/paddle_ocr.py`，离线识别图片文字 |
+| 🔑 **零密钥** | 不再强依赖云 OCR 密钥；云 OCR 不可用时自动降级到本地 PaddleOCR |
+| 🪟 **Windows 适配** | 已验证 Python 3.13 + `paddleocr==2.7.3` + `paddlepaddle==3.3.1`，7 层兼容性补丁修复首字乱码/方块 |
+
+```bash
+# 安装 PaddleOCR（离线 OCR 后端，可选）
+pip install paddleocr==2.7.3 paddlepaddle==3.3.1
+```
+
+> 优先级：腾讯云 OCR（有密钥）→ PaddleOCR（本地）→ 通用随机话题兜底。
 
 ## 功能特性
 

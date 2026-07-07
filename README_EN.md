@@ -1,4 +1,4 @@
-# WeChat Shot v4.3
+# WeChat Shot v4.4
 
 > A CLI tool that generates realistic WeChat chat screenshots. Image/OCR or text input → auto scene expansion (with de-AI naturalness) → confirmation → long screenshot → Excel log + Tencent Docs sync.
 
@@ -9,6 +9,11 @@
 - New `--scene <key>` to force a scene (daily/funny/work/tech/finance/academic/history/zhihu).
 - Chat transcript passthrough: if `--text` is already `**Name**：` chat, it is adopted directly with light humanizing.
 - Tip: for the most lifelike result, let your AI assistant write the dialogue, then render it.
+
+## v4.4 — PaddleOCR local OCR backend (no API key)
+
+- OCR chain now falls back to a local **PaddleOCR** engine (`scripts/paddle_ocr.py`) after Tencent Cloud OCR, so image input works fully offline with zero keys.
+- Verified on Windows + Python 3.13 (`paddleocr==2.7.3` + `paddlepaddle==3.3.1`); a 7-layer compatibility patch fixes first-char mojibake / tofu boxes.
 
 [![Node](https://img.shields.io/badge/node-%3E%3D18-brightgreen)](https://nodejs.org/)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)

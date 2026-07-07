@@ -2,6 +2,15 @@
 
 所有重要变更记录于此。格式参考 [Keep a Changelog](https://keepachangelog.com/)。
 
+## [4.4.0] — 2026-07-07
+
+### 新增 (Added)
+- **PaddleOCR 本地 OCR 后端（无需 API Key）**：`auto.js` 的 OCR 链路在腾讯云 `tencentcloud-ocr` 之后新增第二优先级 `tryPaddleOcr()` → `scripts/paddle_ocr.py`，本地离线识别图片文字，彻底摆脱对云 OCR 密钥的强依赖。Windows + Python 3.13 已验证（`paddleocr==2.7.3` + `paddlepaddle==3.3.1`），首字乱码/方块问题通过 7 层兼容性补丁修复（imghdr 垫片、np.sctypes 垫片、ASCII 模型目录、cv2.imdecode、`create_predictor` monkeypatch、safe-delete 绕过）。
+- 同步用户级技能 `paddleocr-windows-py313`，沉淀可复用的 Windows+Py3.13 PaddleOCR 安装与排错配方。
+
+### 文档 (Docs)
+- 版本升至 4.4.0；README / README_EN / SKILL.md 新增 PaddleOCR 本地后端说明；本 CHANGELOG 新增 [4.4.0] 段。
+
 ## [4.3.0] — 2026-07-06
 
 ### 修复 (Fixed)
