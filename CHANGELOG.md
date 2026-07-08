@@ -2,6 +2,23 @@
 
 所有重要变更记录于此。格式参考 [Keep a Changelog](https://keepachangelog.com/)。
 
+## [4.4.4] — 2026-07-08
+
+### 修复 (Fixed)
+- **泡泡错位（CRITICAL）**：v4.4.3 的 `patchBubbleSides` 只改子元素 `.wc-body` 的 `margin: auto`，但父元素 `.wc-dialog` 仍是 `justify-content: flex-end`（该第三方页面所有消息默认都是 `wc-dialog-right`），导致 flex-end 父容器中子元素 margin auto 被忽略，所有气泡全部挤在右侧。重写为**直接改父元素 `.wc-dialog` 的 `justify-content`**（他人 `flex-start` → 推到左边，自己 `flex-end` → 保持右侧），不再依赖 margin auto。
+- **腾讯文档截图本地路径无法打开**：智能表格「截图」字段为 `url` 类型，填入的是 `C:\Users\...` 本地路径，云端无法打开。新增「截图预览」`image` 类型字段，用 `upload_image` 上传 PNG 缩略图得到 image_id 后填入，云端直接显示为 HTTPS 图片链接。
+- **输入图片不可打开**：用户输入的图片此前只写入 `text` 类型字段「输入原始内容」存路径，在表格中无法打开。新增「输入图片」`image` 类型字段，用 `upload_image` 上传原图缩略图得到 image_id 后填入，云端直接显示为 HTTPS 图片链接。
+
+### 新增 (Added)
+- 智能表格 `wechat-shot-records` 新增两个字段：「截图预览」(image, field_id: f2J7IH) 和「输入图片」(image, field_id: fLPcmn)。
+- `upload_image` 上传缩略图方案：Puppeteer 打开原图 → CSS 缩放 → elementHandle.screenshot() 生成 340px 宽缩略图 → base64 → upload_image → image_id。
+- `patchBubbleSides` 同时注入头像（`injectAvatar`）到正确侧（他人左侧 / 自己右侧），确保两人头像不同。
+
+### 改进 (Changed)
+- `patchBubbleSides` 核心逻辑从「改子元素 margin」改为「改父元素 justify-content」，从根本上解决 flex-end 导致的排版失效。
+- `.wc-body` 设置 `width: fit-content` + `max-width: 85%` + `align-items` 按侧别区分，确保气泡宽度自适应内容。
+- `.wc-arrow` 按侧别调整 `left/right` 位置 + `transform: rotate(45deg)` 方向，箭头指向正确。
+
 ## [4.4.3] — 2026-07-08
 
 ### 修复 (Fixed)

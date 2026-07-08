@@ -1,8 +1,8 @@
 ---
 name: wechat-shot
-description: "微信截图王 — 生成逼真的微信聊天截图。支持文字/图片(OCR)/红包/转账/语音/长截图，自动头像生成，纯CSS图标。v4.1 起支持 --realism/--deai 去AI味自然度；v4.2 起支持 --llm 大模型生成模式（OpenAI 兼容，密钥零泄露+SSRF防护）；v4.3 修复 OCR 技能自动识别（不再写死技能ID）与生成内容去重，并并入浏览器端 SSRF 请求拦截；v4.4.1 新增状态栏全面可调（时间默认当前真实时间、--network 切换 WiFi/蜂窝 5G、--battery/--signal 渲染后强制生效）；v4.4.2 新增腾讯文档同步（--sync-tencent-docs，生成后追加一行到腾讯文档智能表格 wechat-shot-records，列：日期时间/输入类型/输入原始内容/生成的聊天文本/截图）与两天互动对话渲染；v4.4.3 修复第三方解析器默认把所有气泡放右侧的硬伤——新增 --other-side 参数，按「说话人序列」把指定他人气泡强制搬回左侧（白色+专属头像），实现真正的双向排版；v4.4 新增 PaddleOCR 本地 OCR 后端（无需 API Key，离线运行）。当用户需要制作微信对话截图、聊天记录长图、模拟微信聊天界面时使用。"
+description: "微信截图王 — 生成逼真的微信聊天截图。支持文字/图片(OCR)/红包/转账/语音/长截图，自动头像生成，纯CSS图标。v4.1 起支持 --realism/--deai 去AI味自然度；v4.2 起支持 --llm 大模型生成模式（OpenAI 兼容，密钥零泄露+SSRF防护）；v4.3 修复 OCR 技能自动识别（不再写死技能ID）与生成内容去重，并并入浏览器端 SSRF 请求拦截；v4.4.1 新增状态栏全面可调（时间默认当前真实时间、--network 切换 WiFi/蜂窝 5G、--battery/--signal 渲染后强制生效）；v4.4.2 新增腾讯文档同步（--sync-tencent-docs，生成后追加一行到腾讯文档智能表格 wechat-shot-records，列：日期时间/输入类型/输入原始内容/生成的聊天文本/截图）与两天互动对话渲染；v4.4.3 修复第三方解析器默认把所有气泡放右侧的硬伤——新增 --other-side 参数，按「说话人序列」把指定他人气泡强制搬回左侧（白色+专属头像），实现真正的双向排版；v4.4.4 修复泡泡错位根因（改父元素 justify-content 而非子元素 margin auto），腾讯文档截图与输入图片改为 image 字段类型（云端可直接打开），不再使用本地 C:\ 路径；v4.4 新增 PaddleOCR 本地 OCR 后端（无需 API Key，离线运行）。当用户需要制作微信对话截图、聊天记录长图、模拟微信聊天界面时使用。"
 description_zh: "微信聊天截图生成器"
-version: 4.4.3
+version: 4.4.4
 allowed-tools:
   - Bash
   - Read
@@ -12,9 +12,15 @@ display_name: "微信截图王"
 visibility: "public"
 ---
 
-# 微信截图王 v4.4.3 (WeChat Shot)
+# 微信截图王 v4.4.4 (WeChat Shot)
 
 > 智能微信聊天截图工具。图片/文字输入 → 自动场景扩展（去 AI 味）→ 确认 → 长截图 → Excel记录 + 腾讯文档同步。
+
+## v4.4.4 更新要点
+
+- **泡泡错位根因修复（CRITICAL）**：v4.4.3 的 `patchBubbleSides` 只改子元素 `.wc-body` 的 `margin: auto`，但父元素 `.wc-dialog` 仍是 `justify-content: flex-end`（该第三方页面所有消息默认都是 `wc-dialog-right`），导致子元素 margin auto 被忽略，所有气泡全部挤在右侧。重写为**直接改父元素 `.wc-dialog` 的 `justify-content`**（他人 `flex-start` → 推到左边，自己 `flex-end` → 保持右侧），从根本上解决排版失效。
+- **腾讯文档截图与输入图片改为云端可访问**：此前智能表格「截图」字段为 url 类型填本地 `C:\` 路径，云端无法打开。新增「截图预览」(image) 和「输入图片」(image) 两个字段，用 `upload_image` 上传缩略图得到 image_id，云端直接显示为 HTTPS 图片链接，点击即可打开。
+- **头像按侧别注入**：`patchBubbleSides` 中 `injectAvatar` 确保他人头像在左侧、自己头像在右侧，两人头像不同。
 
 ## v4.4.3 更新要点
 

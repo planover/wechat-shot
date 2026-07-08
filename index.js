@@ -1151,24 +1151,26 @@ async function patchBubbleSides(page, otherSideSpec, speakers, avatarMap) {
       const isOther = speaker && others.includes(speaker);
       const body = bubble.closest('.wc-body') || bubble.parentElement;
       if (!body) return;
+      // 父容器 .wc-dialog 控制左右对齐（所有消息默认 wc-dialog-right=flex-end）
+      const dialog = body.closest('.wc-dialog') || body.parentElement;
       // 让 body 成为横向 flex 容器：头像 + 气泡 并排
       body.style.display = 'flex';
       body.style.flexDirection = 'row';
       const arrow = bubble.querySelector('.wc-arrow');
 
       if (isOther) {
-        // 他人：左对齐 + 白色气泡 + 白色箭头(翻转) + 头像在左
+        // 他人：改父容器 justify-content 为 flex-start（推到左边）
+        if (dialog) { dialog.style.justifyContent = 'flex-start'; }
         body.style.width = 'fit-content';
         body.style.maxWidth = '85%';
         body.style.marginLeft = '12px';
-        body.style.marginRight = 'auto';
+        body.style.marginRight = '12px';
         body.style.alignItems = 'flex-start';
         bubble.style.background = '#ffffff';
         bubble.style.color = '#1a1a1a';
         bubble.style.marginLeft = '8px';
         bubble.style.marginRight = '0';
         if (arrow) {
-          // 箭头是 24x24 绿色方块旋转 45° 的菱形；他人侧翻白 + 镜像 + 改挂左侧
           arrow.style.background = '#ffffff';
           arrow.style.borderColor = '#ffffff';
           arrow.style.right = 'auto';
@@ -1177,10 +1179,11 @@ async function patchBubbleSides(page, otherSideSpec, speakers, avatarMap) {
         }
         injectAvatar(body, avatarData[speaker], 'left');
       } else {
-        // 自己：右对齐 + 绿色气泡 + 绿色箭头 + 头像在右
+        // 自己：保持父容器 justify-content 为 flex-end（推到右边）
+        if (dialog) { dialog.style.justifyContent = 'flex-end'; }
         body.style.width = 'fit-content';
         body.style.maxWidth = '85%';
-        body.style.marginLeft = 'auto';
+        body.style.marginLeft = '12px';
         body.style.marginRight = '12px';
         body.style.alignItems = 'flex-end';
         bubble.style.background = SELF_GREEN;
@@ -1188,7 +1191,6 @@ async function patchBubbleSides(page, otherSideSpec, speakers, avatarMap) {
         bubble.style.marginLeft = '0';
         bubble.style.marginRight = '8px';
         if (arrow) {
-          // 保留原始 45° 旋转，仅改色，挂右侧
           arrow.style.background = SELF_GREEN;
           arrow.style.borderColor = SELF_GREEN;
           arrow.style.left = 'auto';
