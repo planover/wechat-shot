@@ -2,6 +2,16 @@
 
 所有重要变更记录于此。格式参考 [Keep a Changelog](https://keepachangelog.com/)。
 
+## [4.4.3] — 2026-07-08
+
+### 修复 (Fixed)
+- **第三方解析器把所有气泡放右侧的硬伤**：`gaopengbin/wechat-dialog-generator` 默认把每条消息都按「自己」渲染（右对齐 + 绿/白气泡 + 无头像），导致两人对话看起来全是单向留言。新增 `--other-side <姓名>` 参数（`index.js` / `auto.js` 双入口均支持），按「说话人序列」把指定他人气泡强制搬回左侧（白色背景 + DiceBear 专属头像 + 箭头朝左），实现真正的微信双向排版。
+- 原理：渲染后 DOM patch，将 `.wc-body` 改为 `width:fit-content + max-width:85% + margin-right:auto` 推到对话区左侧，并按「第 i 个气泡 ↔ 第 i 条消息说话人」逐一匹配归属（不依赖气泡文本，避免「陈总您说」这类不含姓名的消息漏判）。
+
+### 新增 (Added)
+- `index.js`：`patchBubbleSides()` + `parseMessages()`；`--other-side` 参数与 `opts.otherSide` 默认字段；帮助文案补充。
+- `auto.js`：`--other-side` 参数解析与透传至 `index.js`。
+
 ## [4.4.2] — 2026-07-07
 
 ### 新增 (Added)

@@ -161,6 +161,7 @@ function parseArgs() {
     verbose: false,
     silent: false,  // v4.0: 静默模式，供 auto.js 调用
     syncTencentDocs: false,  // v4.4.1+: 生成后同步到腾讯文档
+    otherSide: null,  // v4.4.3+: 指定"他人"姓名(逗号分隔)，将其气泡搬回左侧
   };
 
   for (let i = 0; i < args.length; i++) {
@@ -183,6 +184,7 @@ function parseArgs() {
       case '--verbose': case '-v': opts.verbose = true; break;
       case '--silent': opts.silent = true; break;  // v4.0: 静默模式
       case '--sync-tencent-docs': opts.syncTencentDocs = true; break;
+      case '--other-side': opts.otherSide = next; i++; break;
       case '--help': case '-h': printHelp(); process.exit(0);
     }
   }
@@ -257,6 +259,7 @@ function printHelp() {
   --avatar-style <style>  头像风格（默认 avataaars⭐）⭐
   --avatar-map <map>      按角色指定风格 "张三:avataaars,李四:bottts"
   --sync-tencent-docs     生成后同步到腾讯文档（导入就绪文档 + 结构化 payload；连接器连通后自动推送云端）
+  --other-side <names>    指定"他人"姓名(逗号分隔，如 康师傅,小李)，将其气泡强制搬回左侧(白色+头像)；解决第三方解析器默认全部靠右的问题
   -v, --verbose           显示详细日志 ⭐v3.3
   -h, --help              显示帮助
 
@@ -612,6 +615,15 @@ async function main() {
     // ── Step 4.5: 直接修补渲染后的状态栏（时间/电量/信号/网络）──
     log('修补状态栏 (时间/电量/信号/网络)...');
     await patchStatusBar(page, opts);
+
+    // ── Step 4.6: 修补气泡左右分布（外网第三方解析器默认把所有人放右侧）──
+    // 通过 --other-side 指定"他人"姓名（支持多个，逗号分隔），将他们的气泡强制搬回左侧
+    if (opts.otherSide) {
+      log('修补气泡左右分布...');
+      const msgs = parseMessages(chatText);
+      const speakers = msgs.map((m) => m.speaker);
+      await patchBubbleSides(page, opts.otherSide, speakers, avatarMap);
+    }
 
     // ── Step 5: 等待资源加载 ──
     log('等待资源加载...');
@@ -1024,6 +1036,112 @@ async function patchStatusBar(page, opts) {
 
 function netSafe(v) {
   return (v || 'wifi').toLowerCase() === 'cellular' ? 'cellular' : 'wifi';
+}
+
+/**
+ * 解析 --other-side 字符串：支持 "姓名1,姓名2,姓名3" 或单名
+ * 用于告诉 patchBubbleSides 哪些名字应该出现在左侧
+ */
+function parseOtherSideList(v) {
+  if (!v) return [];
+  return String(v)
+    .split(/[,，、\s]+/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+/**
+ * 解析聊天文本为消息序列 [{speaker, text}]，用于按「说话人」而非「文本」判定左右
+ * 跳过时间节点行（**【...】**）
+ */
+function parseMessages(chatText) {
+  const lines = String(chatText || '').split('\n').map((l) => l.trim()).filter(Boolean);
+  const msgs = [];
+  const re = /^\*\*([^*]+)\*\*\s*[:：]\s*(.*)$/;
+  for (const line of lines) {
+    if (/^\*\*【.*】\*\*$/.test(line)) continue; // 时间节点
+    const m = line.match(re);
+    if (m) {
+      msgs.push({ speaker: m[1].trim(), text: m[2].trim() });
+    } else {
+      msgs.push({ speaker: null, text: line });
+    }
+  }
+  return msgs;
+}
+
+/**
+ * 修补气泡左右分布：按「说话人序列」把他人气泡强制搬回左侧（带头像 + 白色气泡）
+ * 解决外网 gaopengbin/wechat-dialog-generator 默认把所有气泡放右侧的问题
+ *
+ * 第三方页面把每条消息都按「自己」渲染（右对齐 + 绿/白气泡 + 无头像），
+ * 故渲染后气泡内无说话人名字，只能用「第 i 个气泡 ↔ 第 i 条消息的说话人」逐一匹配。
+ *
+ * @param {object} page          puppeteer page
+ * @param {string} otherSideSpec --other-side 值，逗号分隔的他人姓名
+ * @param {string[]} speakers    与 .wc-bubble 顺序一致的说话人序列
+ * @param {Map}    avatarMap     generateAvatars 返回的 姓名->dataUri
+ */
+async function patchBubbleSides(page, otherSideSpec, speakers, avatarMap) {
+  const others = parseOtherSideList(otherSideSpec);
+  if (others.length === 0 || !speakers || speakers.length === 0) return;
+
+  const avatarData = {};
+  if (avatarMap && typeof avatarMap.get === 'function') {
+    others.forEach((name) => {
+      const d = avatarMap.get(name);
+      if (d) avatarData[name] = d;
+    });
+  }
+
+  await page.evaluate(({ others, speakers, avatarData }) => {
+    const bubbles = Array.from(document.querySelectorAll('.wc-bubble'));
+    bubbles.forEach((bubble, i) => {
+      const speaker = speakers[i];
+      const isOther = speaker && others.includes(speaker);
+      if (!isOther) return;
+
+      const body = bubble.closest('.wc-body') || bubble.parentElement;
+      if (!body) return;
+
+      // 1) 容器靠左：覆盖默认 width:713px + margin:0 160px 0 140px + align-items:flex-end
+      //    用 fit-content 让行宽随内容收缩，再 margin-right:auto 把整行推到对话区左侧
+      body.style.width = 'fit-content';
+      body.style.maxWidth = '85%';
+      body.style.marginLeft = '12px';
+      body.style.marginRight = 'auto';
+      body.style.alignItems = 'flex-start';
+
+      // 2) 气泡白色
+      bubble.style.background = '#ffffff';
+      bubble.style.color = '#1a1a1a';
+      bubble.style.marginLeft = '8px';
+      bubble.style.marginRight = '0';
+
+      // 3) 箭头朝左
+      const arrow = body.querySelector('.wc-arrow');
+      if (arrow) arrow.style.transform = 'scaleX(-1)';
+
+      // 4) 注入头像（若有）
+      const dataUri = avatarData[speaker];
+      if (dataUri) {
+        let img = body.querySelector('img');
+        if (!img) {
+          img = document.createElement('img');
+          img.style.width = '38px';
+          img.style.height = '38px';
+          img.style.borderRadius = '6px';
+          img.style.marginRight = '8px';
+          img.style.flexShrink = '0';
+          img.style.alignSelf = 'flex-start';
+          body.insertBefore(img, body.firstChild);
+        }
+        img.src = dataUri;
+      }
+    });
+  }, { others, speakers, avatarData });
+
+  await new Promise((r) => setTimeout(r, 300));
 }
 
 // ═══════════════════════════════════════════

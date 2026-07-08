@@ -72,6 +72,7 @@ function parseArgs() {
       case '--signal': opts.signal = parseInt(next, 10); i++; break;
       case '--network': opts.network = (next || 'wifi').toLowerCase(); i++; break;
       case '--sync-tencent-docs': opts.syncTencentDocs = true; break;
+      case '--other-side': opts.otherSide = next; i++; break;
       case '--avatar-style': opts.avatarStyle = next; i++; break;
       case '--realism': opts.realism = parseFloat(next); i++; break;
       case '--scene': opts.scene = next; i++; break;
@@ -332,6 +333,9 @@ async function generateScreenshot(chatText, opts) {
   }
   if (opts.syncTencentDocs) {
     indexArgs.push('--sync-tencent-docs');
+  }
+  if (opts.otherSide) {
+    indexArgs.push('--other-side', opts.otherSide);
   }
 
   // 调用 index.js

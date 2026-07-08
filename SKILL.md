@@ -1,8 +1,8 @@
 ---
 name: wechat-shot
-description: "微信截图王 — 生成逼真的微信聊天截图。支持文字/图片(OCR)/红包/转账/语音/长截图，自动头像生成，纯CSS图标。v4.1 起支持 --realism/--deai 去AI味自然度；v4.2 起支持 --llm 大模型生成模式（OpenAI 兼容，密钥零泄露+SSRF防护）；v4.3 修复 OCR 技能自动识别（不再写死技能ID）与生成内容去重，并并入浏览器端 SSRF 请求拦截；v4.4.1 新增状态栏全面可调（时间默认当前真实时间、--network 切换 WiFi/蜂窝 5G、--battery/--signal 渲染后强制生效）；v4.4.2 新增腾讯文档同步（--sync-tencent-docs，生成后产出导入就绪文档+结构化payload，连接器连通后自动推送云端）与两天互动对话渲染；v4.4 新增 PaddleOCR 本地 OCR 后端（无需 API Key，离线运行）。当用户需要制作微信对话截图、聊天记录长图、模拟微信聊天界面时使用。"
+description: "微信截图王 — 生成逼真的微信聊天截图。支持文字/图片(OCR)/红包/转账/语音/长截图，自动头像生成，纯CSS图标。v4.1 起支持 --realism/--deai 去AI味自然度；v4.2 起支持 --llm 大模型生成模式（OpenAI 兼容，密钥零泄露+SSRF防护）；v4.3 修复 OCR 技能自动识别（不再写死技能ID）与生成内容去重，并并入浏览器端 SSRF 请求拦截；v4.4.1 新增状态栏全面可调（时间默认当前真实时间、--network 切换 WiFi/蜂窝 5G、--battery/--signal 渲染后强制生效）；v4.4.2 新增腾讯文档同步（--sync-tencent-docs，生成后产出导入就绪文档+结构化payload，连接器连通后自动推送云端）与两天互动对话渲染；v4.4.3 修复第三方解析器默认把所有气泡放右侧的硬伤——新增 --other-side 参数，按「说话人序列」把指定他人气泡强制搬回左侧（白色+专属头像），实现真正的双向排版；v4.4 新增 PaddleOCR 本地 OCR 后端（无需 API Key，离线运行）。当用户需要制作微信对话截图、聊天记录长图、模拟微信聊天界面时使用。"
 description_zh: "微信聊天截图生成器"
-version: 4.4.2
+version: 4.4.3
 allowed-tools:
   - Bash
   - Read
@@ -12,9 +12,13 @@ display_name: "微信截图王"
 visibility: "public"
 ---
 
-# 微信截图王 v4.4.2 (WeChat Shot)
+# 微信截图王 v4.4.3 (WeChat Shot)
 
 > 智能微信聊天截图工具。图片/文字输入 → 自动场景扩展（去 AI 味）→ 确认 → 长截图 → Excel记录 + 腾讯文档同步。
+
+## v4.4.3 更新要点
+
+- **双向对话真正排版（修复硬伤）**：第三方解析器 `gaopengbin/wechat-dialog-generator` 默认把所有气泡放右侧（把所有人都当「自己」）。新增 `--other-side <姓名>` 参数（`index.js` / `auto.js` 双入口均支持），按「说话人序列」把指定他人（如「康师傅」）的气泡强制搬回左侧（白色背景 + DiceBear 专属头像 + 箭头朝左），实现真正的微信双向排版。原理：渲染后 DOM patch，将 `.wc-body` 改为 `fit-content + max-width:85% + margin-right:auto` 推到对话区左侧，并按「第 i 个气泡 ↔ 第 i 条消息说话人」逐一匹配归属（不依赖气泡文本，避免漏判）。
 
 ## v4.4.2 更新要点
 
