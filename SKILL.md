@@ -22,7 +22,7 @@ visibility: "public"
 
 ## v4.4.2 更新要点
 
-- **腾讯文档同步（新增 · `--sync-tencent-docs`）**：截图生成后自动产出「导入就绪」本地文档（内嵌截图 + 对话原文 + 元数据）与结构化 payload；腾讯文档连接器连通后由 Agent 自动推送云端。`index.js` / `auto.js` 双入口均支持该参数。
+- **腾讯文档同步（修正 · `--sync-tencent-docs`）**：每次生成后，Agent 把一条记录**追加到腾讯文档在线表格 `wechat-shot-records`**（find-or-create；列：`日期时间 / 输入类型 / 输入原始内容 / 生成的聊天文本 / 截图`）。**注意：是往「表格」里追加一行，不是创建独立的 HTML/图片文档**（早期错误做法已废弃）。截图以云端链接填入「截图」列。连接器连通后由 Agent 调用 sheet 工具自动完成。`index.js` / `auto.js` 双入口均支持该参数。
 - **两天互动对话渲染（新增）**：用 `**【日期 时间】**` 时间节点语法支持跨天双向对话（如「7月6日 15:30」「7月7日 09:12」），截图覆盖完整的来回互动而非单向留言。
 - **状态栏全面可调（v4.4.1）**：手机时间默认改为当前真实时间（不再固定 12:02）；新增 `--network` 参数（`wifi` 默认 / `cellular` 蜂窝数据，状态栏显示「5G」）；`--battery` / `--signal` 在渲染后通过 DOM patch 强制生效；`auto.js` 补齐 `--battery` / `--signal` / `--network` 透传，两条入口参数通用。
 - **PaddleOCR 本地 OCR 后端（v4.4 · 无需 API Key）**：OCR 链路在腾讯云 `tencentcloud-ocr` 之后新增第二优先级 `tryPaddleOcr()` → `scripts/paddle_ocr.py`，本地离线识别图片文字；Windows + Python 3.13 已验证，首字乱码/方块通过 7 层兼容性补丁修复。
