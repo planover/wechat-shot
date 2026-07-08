@@ -3,7 +3,7 @@
  *
  * 每次使用后自动记录到：
  * 1. 本地 Excel: ./wechat-shot-records.xlsx
- * 2. 腾讯文档在线表格: 同名 wechat-shot-records（Agent 调用 sheet 工具 find-or-create 并追加一行）
+ * 2. 腾讯文档智能表格: 同名 wechat-shot-records（file_id: ekdjtgzmvpMB, sheet_id: t00i2h；Agent 调用 smartsheet.add_records 追加一行）
  */
 
 const XLSX = require('xlsx');
@@ -152,15 +152,15 @@ function listRecords() {
 // ═══════════════════════════════════════════
 
 /**
- * 同步记录到腾讯文档在线表格
+ * 同步记录到腾讯文档智能表格
  *
- * 通过 tencent-docs MCP 的 sheet 能力实现：
- * Agent 先 find-or-create 名为 `wechat-shot-records` 的在线表格，
- * 写入表头（日期时间/输入类型/输入原始内容/生成的聊天文本/截图），
- * 再追加一行本记录。截图列填云端链接（或本地路径）。
+ * 通过 tencent-docs MCP 的 smartsheet 能力实现：
+ * Agent 向已建立的智能表格 `wechat-shot-records`
+ * （file_id: ekdjtgzmvpMB, sheet_id: t00i2h）追加一行本记录，
+ * 列：日期时间/输入类型/输入原始内容/生成的聊天文本/截图（url 字段填云端链接）。
  *
  * 注意：此函数运行在 Node 子进程中，无法直接调用 MCP 工具，
- * 因此返回一个待同步的指令，由上层（auto.js 或 AI agent）执行 sheet 工具调用。
+ * 因此返回一个待同步的指令，由上层（auto.js 或 AI agent）执行 smartsheet.add_records 调用。
  *
  * @returns {object} { synced: boolean, instruction: string }
  */

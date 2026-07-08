@@ -1,6 +1,6 @@
 ---
 name: wechat-shot
-description: "微信截图王 — 生成逼真的微信聊天截图。支持文字/图片(OCR)/红包/转账/语音/长截图，自动头像生成，纯CSS图标。v4.1 起支持 --realism/--deai 去AI味自然度；v4.2 起支持 --llm 大模型生成模式（OpenAI 兼容，密钥零泄露+SSRF防护）；v4.3 修复 OCR 技能自动识别（不再写死技能ID）与生成内容去重，并并入浏览器端 SSRF 请求拦截；v4.4.1 新增状态栏全面可调（时间默认当前真实时间、--network 切换 WiFi/蜂窝 5G、--battery/--signal 渲染后强制生效）；v4.4.2 新增腾讯文档同步（--sync-tencent-docs，生成后产出导入就绪文档+结构化payload，连接器连通后自动推送云端）与两天互动对话渲染；v4.4.3 修复第三方解析器默认把所有气泡放右侧的硬伤——新增 --other-side 参数，按「说话人序列」把指定他人气泡强制搬回左侧（白色+专属头像），实现真正的双向排版；v4.4 新增 PaddleOCR 本地 OCR 后端（无需 API Key，离线运行）。当用户需要制作微信对话截图、聊天记录长图、模拟微信聊天界面时使用。"
+description: "微信截图王 — 生成逼真的微信聊天截图。支持文字/图片(OCR)/红包/转账/语音/长截图，自动头像生成，纯CSS图标。v4.1 起支持 --realism/--deai 去AI味自然度；v4.2 起支持 --llm 大模型生成模式（OpenAI 兼容，密钥零泄露+SSRF防护）；v4.3 修复 OCR 技能自动识别（不再写死技能ID）与生成内容去重，并并入浏览器端 SSRF 请求拦截；v4.4.1 新增状态栏全面可调（时间默认当前真实时间、--network 切换 WiFi/蜂窝 5G、--battery/--signal 渲染后强制生效）；v4.4.2 新增腾讯文档同步（--sync-tencent-docs，生成后追加一行到腾讯文档智能表格 wechat-shot-records，列：日期时间/输入类型/输入原始内容/生成的聊天文本/截图）与两天互动对话渲染；v4.4.3 修复第三方解析器默认把所有气泡放右侧的硬伤——新增 --other-side 参数，按「说话人序列」把指定他人气泡强制搬回左侧（白色+专属头像），实现真正的双向排版；v4.4 新增 PaddleOCR 本地 OCR 后端（无需 API Key，离线运行）。当用户需要制作微信对话截图、聊天记录长图、模拟微信聊天界面时使用。"
 description_zh: "微信聊天截图生成器"
 version: 4.4.3
 allowed-tools:
@@ -22,7 +22,7 @@ visibility: "public"
 
 ## v4.4.2 更新要点
 
-- **腾讯文档同步（修正 · `--sync-tencent-docs`）**：每次生成后，Agent 把一条记录**追加到腾讯文档在线表格 `wechat-shot-records`**（find-or-create；列：`日期时间 / 输入类型 / 输入原始内容 / 生成的聊天文本 / 截图`）。**注意：是往「表格」里追加一行，不是创建独立的 HTML/图片文档**（早期错误做法已废弃）。截图以云端链接填入「截图」列。连接器连通后由 Agent 调用 sheet 工具自动完成。`index.js` / `auto.js` 双入口均支持该参数。
+- **腾讯文档同步（修正 · `--sync-tencent-docs`）**：每次生成后，Agent 把一条记录**追加到腾讯文档智能表格 `wechat-shot-records`**（file_id: `ekdjtgzmvpMB`，sheet_id: `t00i2h`；find-or-create；列：`日期时间 / 输入类型 / 输入原始内容 / 生成的聊天文本 / 截图`）。**注意：是往「智能表格」里追加一行，不是创建独立的 HTML/图片文档**（早期错误做法已废弃）。截图以云端链接（url 字段）填入「截图」列。连接器连通后由 Agent 调用 smartsheet 工具（`add_fields` 建字段 + `add_records` 追加行）自动完成。`index.js` / `auto.js` 双入口均支持该参数。
 - **两天互动对话渲染（新增）**：用 `**【日期 时间】**` 时间节点语法支持跨天双向对话（如「7月6日 15:30」「7月7日 09:12」），截图覆盖完整的来回互动而非单向留言。
 - **状态栏全面可调（v4.4.1）**：手机时间默认改为当前真实时间（不再固定 12:02）；新增 `--network` 参数（`wifi` 默认 / `cellular` 蜂窝数据，状态栏显示「5G」）；`--battery` / `--signal` 在渲染后通过 DOM patch 强制生效；`auto.js` 补齐 `--battery` / `--signal` / `--network` 透传，两条入口参数通用。
 - **PaddleOCR 本地 OCR 后端（v4.4 · 无需 API Key）**：OCR 链路在腾讯云 `tencentcloud-ocr` 之后新增第二优先级 `tryPaddleOcr()` → `scripts/paddle_ocr.py`，本地离线识别图片文字；Windows + Python 3.13 已验证，首字乱码/方块通过 7 层兼容性补丁修复。
