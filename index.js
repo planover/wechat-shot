@@ -1071,11 +1071,16 @@ function parseMessages(chatText) {
 }
 
 /**
- * 修补气泡左右分布：按「说话人序列」把他人气泡强制搬回左侧（带头像 + 白色气泡）
- * 解决外网 gaopengbin/wechat-dialog-generator 默认把所有气泡放右侧的问题
+ * 修补气泡左右分布 + 统一头像 + 修复箭头颜色
  *
- * 第三方页面把每条消息都按「自己」渲染（右对齐 + 绿/白气泡 + 无头像），
- * 故渲染后气泡内无说话人名字，只能用「第 i 个气泡 ↔ 第 i 条消息的说话人」逐一匹配。
+ * 第三方页面 gaopengbin/wechat-dialog-generator 把每条消息都按「自己」渲染
+ * （右对齐 + 绿色气泡 rgb(149,236,105) + 无头像），故渲染后气泡内无说话人名字，
+ * 只能用「第 i 个气泡 ↔ 第 i 条消息的说话人」逐一匹配归属。
+ *
+ * 本函数统一处理「自己」与「他人」两侧：
+ *  - 自己：右对齐 + 绿色气泡 + 绿色箭头 + 头像在右
+ *  - 他人：左对齐 + 白色气泡 + 白色箭头 + 头像在左
+ *  - 两侧均注入各自 DiceBear 头像（seed=说话人名字，确保不同人头像不同），统一尺寸
  *
  * @param {object} page          puppeteer page
  * @param {string} otherSideSpec --other-side 值，逗号分隔的他人姓名
@@ -1084,62 +1089,99 @@ function parseMessages(chatText) {
  */
 async function patchBubbleSides(page, otherSideSpec, speakers, avatarMap) {
   const others = parseOtherSideList(otherSideSpec);
-  if (others.length === 0 || !speakers || speakers.length === 0) return;
+  if (!speakers || speakers.length === 0) return;
 
+  // 取出【所有说话人】的头像（不仅是 others），确保「我」和「他人」都用各自 seed 的头像
   const avatarData = {};
   if (avatarMap && typeof avatarMap.get === 'function') {
-    others.forEach((name) => {
+    speakers.forEach((name) => {
       const d = avatarMap.get(name);
       if (d) avatarData[name] = d;
     });
   }
 
-  await page.evaluate(({ others, speakers, avatarData }) => {
+  const SELF_GREEN = 'rgb(149, 236, 105)';
+  const AV_SIZE = 40;
+
+  await page.evaluate(({ others, speakers, avatarData, SELF_GREEN, AV_SIZE }) => {
+    const injectAvatar = (body, dataUri, side) => {
+      if (!dataUri) return;
+      let img = body.querySelector('img.avatar-injected');
+      if (!img) {
+        img = document.createElement('img');
+        img.className = 'avatar-injected';
+        img.style.width = AV_SIZE + 'px';
+        img.style.height = AV_SIZE + 'px';
+        img.style.flex = '0 0 ' + AV_SIZE + 'px';
+        img.style.borderRadius = '6px';
+        img.style.alignSelf = 'flex-start';
+        img.style.objectFit = 'cover';
+        img.style.display = 'block';
+        if (side === 'left') {
+          img.style.marginRight = '8px';
+          body.insertBefore(img, body.firstChild);
+        } else {
+          img.style.marginLeft = '8px';
+          body.appendChild(img);
+        }
+      }
+      img.src = dataUri;
+    };
+
     const bubbles = Array.from(document.querySelectorAll('.wc-bubble'));
     bubbles.forEach((bubble, i) => {
       const speaker = speakers[i];
       const isOther = speaker && others.includes(speaker);
-      if (!isOther) return;
-
       const body = bubble.closest('.wc-body') || bubble.parentElement;
       if (!body) return;
+      // 让 body 成为横向 flex 容器：头像 + 气泡 并排
+      body.style.display = 'flex';
+      body.style.flexDirection = 'row';
+      const arrow = bubble.querySelector('.wc-arrow');
 
-      // 1) 容器靠左：覆盖默认 width:713px + margin:0 160px 0 140px + align-items:flex-end
-      //    用 fit-content 让行宽随内容收缩，再 margin-right:auto 把整行推到对话区左侧
-      body.style.width = 'fit-content';
-      body.style.maxWidth = '85%';
-      body.style.marginLeft = '12px';
-      body.style.marginRight = 'auto';
-      body.style.alignItems = 'flex-start';
-
-      // 2) 气泡白色
-      bubble.style.background = '#ffffff';
-      bubble.style.color = '#1a1a1a';
-      bubble.style.marginLeft = '8px';
-      bubble.style.marginRight = '0';
-
-      // 3) 箭头朝左
-      const arrow = body.querySelector('.wc-arrow');
-      if (arrow) arrow.style.transform = 'scaleX(-1)';
-
-      // 4) 注入头像（若有）
-      const dataUri = avatarData[speaker];
-      if (dataUri) {
-        let img = body.querySelector('img');
-        if (!img) {
-          img = document.createElement('img');
-          img.style.width = '38px';
-          img.style.height = '38px';
-          img.style.borderRadius = '6px';
-          img.style.marginRight = '8px';
-          img.style.flexShrink = '0';
-          img.style.alignSelf = 'flex-start';
-          body.insertBefore(img, body.firstChild);
+      if (isOther) {
+        // 他人：左对齐 + 白色气泡 + 白色箭头(翻转) + 头像在左
+        body.style.width = 'fit-content';
+        body.style.maxWidth = '85%';
+        body.style.marginLeft = '12px';
+        body.style.marginRight = 'auto';
+        body.style.alignItems = 'flex-start';
+        bubble.style.background = '#ffffff';
+        bubble.style.color = '#1a1a1a';
+        bubble.style.marginLeft = '8px';
+        bubble.style.marginRight = '0';
+        if (arrow) {
+          // 箭头是 24x24 绿色方块旋转 45° 的菱形；他人侧翻白 + 镜像 + 改挂左侧
+          arrow.style.background = '#ffffff';
+          arrow.style.borderColor = '#ffffff';
+          arrow.style.right = 'auto';
+          arrow.style.left = '-10px';
+          arrow.style.transform = 'rotate(45deg) scaleX(-1)';
         }
-        img.src = dataUri;
+        injectAvatar(body, avatarData[speaker], 'left');
+      } else {
+        // 自己：右对齐 + 绿色气泡 + 绿色箭头 + 头像在右
+        body.style.width = 'fit-content';
+        body.style.maxWidth = '85%';
+        body.style.marginLeft = 'auto';
+        body.style.marginRight = '12px';
+        body.style.alignItems = 'flex-end';
+        bubble.style.background = SELF_GREEN;
+        bubble.style.color = '#1a1a1a';
+        bubble.style.marginLeft = '0';
+        bubble.style.marginRight = '8px';
+        if (arrow) {
+          // 保留原始 45° 旋转，仅改色，挂右侧
+          arrow.style.background = SELF_GREEN;
+          arrow.style.borderColor = SELF_GREEN;
+          arrow.style.left = 'auto';
+          arrow.style.right = '-10px';
+          arrow.style.transform = 'rotate(45deg)';
+        }
+        injectAvatar(body, avatarData[speaker], 'right');
       }
     });
-  }, { others, speakers, avatarData });
+  }, { others, speakers, avatarData, SELF_GREEN, AV_SIZE });
 
   await new Promise((r) => setTimeout(r, 300));
 }
@@ -1264,4 +1306,5 @@ if (require.main === module) {
 
 // 导出纯函数供测试（test/ssrf-policy.test.js）注入假 DNS 解析器做独立验证；
 // 不影响 auto.js 通过子进程调用本文件（CLI 入口仍由 require.main === module 守卫）。
-module.exports = { decideImageRequest, onRequest };
+// 另导出 patchBubbleSides / generateAvatars / parseMessages 供 test/verify-render.js 在真实页面上做渲染校验。
+module.exports = { decideImageRequest, onRequest, patchBubbleSides, generateAvatars, parseMessages };

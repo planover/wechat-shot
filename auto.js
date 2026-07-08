@@ -48,6 +48,9 @@ function parseArgs() {
     syncTencentDocs: false,
     avatarStyle: 'avataaars',
     realism: 0.7,
+    inputTypeOverride: null,   // --input-type：强制输入类型（图片/音频/视频/文本/文件）
+    rawInput: null,            // --raw-input：用户【直接给的】原始输入描述（如"图片: xxx.png"）
+    recognized: null,          // --recognized：经 OCR/识别 后的文字内容（无 OCR 环境时手工提供）
     scene: null,
     llm: false,
     llmProvider: 'openai',
@@ -72,6 +75,9 @@ function parseArgs() {
       case '--signal': opts.signal = parseInt(next, 10); i++; break;
       case '--network': opts.network = (next || 'wifi').toLowerCase(); i++; break;
       case '--sync-tencent-docs': opts.syncTencentDocs = true; break;
+      case '--input-type': opts.inputTypeOverride = (next || 'text').toLowerCase(); i++; break;
+      case '--raw-input': opts.rawInput = next; i++; break;
+      case '--recognized': opts.recognized = next; i++; break;
       case '--other-side': opts.otherSide = next; i++; break;
       case '--avatar-style': opts.avatarStyle = next; i++; break;
       case '--realism': opts.realism = parseFloat(next); i++; break;
@@ -392,18 +398,37 @@ async function main() {
   console.log('═'.repeat(50));
   
   // ── Step 0-1: 读取输入 ──
-  let rawContent = '';
-  let inputType = 'text';
-  
+  // 概念澄清（按用户要求）：
+  //   rawInput           = 用户【直接给的】原始输入（图片/音频/视频/文本/文件），未经识别
+  //   recognizedContent  = 经 OCR/识别 后得到的文字内容
+  //   chatText           = 最终渲染进截图的聊天文本（由 recognizedContent 忠实生成，禁止自由发挥）
+  let rawContent = '';          // 生成聊天的素材（= recognizedContent）
+  let inputType = opts.inputTypeOverride || 'text';
+  let rawInput = '';            // 用户原始输入描述
+  let recognizedContent = '';   // 识别后内容
+
   if (opts.image) {
-    inputType = 'image';
+    inputType = opts.inputTypeOverride || 'image';
+    rawInput = opts.rawInput || `图片: ${path.basename(opts.image)}`;
     console.log(`📷 输入: 图片 → ${opts.image}`);
-    rawContent = await ocrImage(opts.image);
-    console.log(`📝 OCR 结果: ${rawContent.substring(0, 100)}${rawContent.length > 100 ? '...' : ''}`);
+    const ocr = await ocrImage(opts.image);
+    recognizedContent = opts.recognized || ocr;
+    rawContent = recognizedContent;
+    console.log(`📝 识别结果: ${recognizedContent.substring(0, 100)}${recognizedContent.length > 100 ? '...' : ''}`);
+    if (!opts.recognized && ocr.startsWith('[图片:')) {
+      console.warn('⚠️ 未获取到识别内容（OCR 不可用且无 --recognized），将不会自由发挥，请补充 --recognized。');
+    }
   } else if (opts.text) {
-    inputType = 'text';
-    console.log(`📝 输入: 文字描述 → "${opts.text.substring(0, 80)}${opts.text.length > 80 ? '...' : ''}"`);
-    rawContent = opts.text;
+    inputType = opts.inputTypeOverride || 'text';
+    recognizedContent = opts.text;
+    rawContent = recognizedContent;
+    if (['image', 'audio', 'video', 'file'].includes(inputType)) {
+      // 文字是从图片/音频/视频/文件识别来的，原始输入是那个载体
+      rawInput = opts.rawInput || `（${inputType} 载体，识别后内容见"识别后内容"列）`;
+    } else {
+      rawInput = opts.text;
+    }
+    console.log(`📝 输入: 文字 → "${opts.text.substring(0, 80)}${opts.text.length > 80 ? '...' : ''}"`);
   }
   
   // ── Step 2: 生成聊天文本 ──
@@ -472,7 +497,8 @@ async function main() {
       const rowNum = addRecord({
         date: new Date(),
         inputType,
-        rawContent,
+        rawInput,
+        recognizedContent,
         chatText,
         screenshotPath: outputPath,
       });
@@ -486,7 +512,8 @@ async function main() {
       const syncResult = await syncToTencentDocs({
         date: new Date(),
         inputType,
-        rawContent,
+        rawInput,
+        recognizedContent,
         chatText,
         screenshotPath: outputPath,
       });
@@ -497,7 +524,8 @@ async function main() {
         console.log(`   请使用 tencent-docs MCP 同步以下记录:`);
         console.log(`   - 日期时间: ${syncResult.record['日期时间']}`);
         console.log(`   - 输入类型: ${syncResult.record['输入类型']}`);
-        console.log(`   - 输入内容: ${syncResult.record['输入原始内容'].substring(0, 50)}...`);
+        console.log(`   - 输入原始内容: ${String(syncResult.record['输入原始内容']).substring(0, 50)}`);
+        console.log(`   - 识别后内容: ${String(syncResult.record['识别后内容']).substring(0, 50)}...`);
         console.log(`   - 截图路径: ${syncResult.record['截图路径']}`);
       }
     } catch (err) {
