@@ -490,10 +490,27 @@ function fetchDiceBearAvatarPng(seed, style) {
 /**
  * 为所有用户生成头像
  */
-async function generateAvatars(chatText, defaultStyle, styleMap) {
+/**
+ * 为聊天中的每个用户生成 DiceBear 头像
+ *
+ * 支持两种调用方式：
+ *   1) generateAvatars(chatText, style, styleMap)  — 传入完整文本，内部自动 extractUserNames
+ *   2) generateAvatars(names[], style, styleMap)    — 传入已提取的名字数组（names 必须是 string[]）
+ *
+ * @param {string|string[]} chatTextOrNames 聊天文本 或 预提取的用户名数组
+ * @param {string} [defaultStyle]            头如 'avataaars'（不传则返回空 Map）
+ * @param {object} [styleMap]                 按名字指定风格 { '张三': 'bottts' }
+ */
+async function generateAvatars(chatTextOrNames, defaultStyle, styleMap) {
   if (!defaultStyle && !styleMap) return new Map();
 
-  const names = extractUserNames(chatText);
+  // 兼容两种输入：字符串(文本) 或 数组(已提取的名字)
+  let names;
+  if (Array.isArray(chatTextOrNames)) {
+    names = [...new Set(chatTextOrNames.filter(n => typeof n === 'string' && n.trim()))];
+  } else {
+    names = extractUserNames(String(chatTextOrNames || ''));
+  }
   if (names.length === 0) return new Map();
 
   console.log(`🎨 为用户生成 DiceBear 头像 (${defaultStyle} 风格)...`);
