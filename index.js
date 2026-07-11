@@ -1,22 +1,25 @@
 #!/usr/bin/env node
 /**
- * 微信截图王 v3.3 - 通用聊天截图工具
+ * 微信截图王 v4.4.4 - 通用聊天截图工具
  *
  * 基于 https://gaopengbin.github.io/wechat-dialog-generator/
  * 通过 Puppeteer 操控页面，输入聊天文本，自动生成并下载截图。
  *
- * v3.3 更新:
- *   - 🌍 通用化: 去掉平台专属路径, git clone 即可用 (OpenClaw 等)
- *   - 😀 Twemoji 渲染: emoji 显示为真实彩色图标 (非 [笑哭] 文字)
- *   - 📦 标准 npm 包结构
+ * v4.4.4 更新:
+ *   - fix: 修复泡泡错位（patchBubbleSides 改父元素 justify-content 而非子元素 margin auto）
+ *   - refactor: 合并 patchBubbleSides 重复代码，更新过期注释
  *
- * v3.0 重大更新:
- *   - ✅ 彻底修复红包/转账图标 ⊠ 问题 (纯 HTML/CSS 内嵌元素)
- *   - ✅ 自动为 [图片] 无URL消息填充随机图片 (picsum/unsplash)
- *   - ✅ 群聊名称/联系人自定义 (--contact)
- *   - ✅ 头像默认改为 avataaars 彩色扁平风格
- *   - ✅ 新增 personas 风格: 根据角色名智能匹配头像
- *   - ✅ 增强容错：多次重试 + 详细诊断日志
+ * v4.4.0-4.4.3 更新:
+ *   - PaddleOCR 本地 OCR 后端（无需 API Key）
+ *   - 状态栏全面可调（时间/网络/电量/信号）
+ *   - 腾讯文档智能表格同步
+ *   - --other-side 双向排版（他人气泡搬回左侧）
+ *
+ * v3.x 更新:
+ *   - 通用化: git clone 即可用
+ *   - Twemoji 渲染: emoji 显示为彩色图标
+ *   - 纯 HTML/CSS 红包/转账图标
+ *   - avataaars/personas 头像风格
  */
 
 const puppeteer = require('puppeteer');
@@ -1158,47 +1161,35 @@ async function patchBubbleSides(page, otherSideSpec, speakers, avatarMap) {
       body.style.flexDirection = 'row';
       const arrow = bubble.querySelector('.wc-arrow');
 
-      if (isOther) {
-        // 他人：改父容器 justify-content 为 flex-start（推到左边）
-        if (dialog) { dialog.style.justifyContent = 'flex-start'; }
-        body.style.width = 'fit-content';
-        body.style.maxWidth = '85%';
-        body.style.marginLeft = '12px';
-        body.style.marginRight = '12px';
-        body.style.alignItems = 'flex-start';
-        bubble.style.background = '#ffffff';
-        bubble.style.color = '#1a1a1a';
-        bubble.style.marginLeft = '8px';
-        bubble.style.marginRight = '0';
-        if (arrow) {
-          arrow.style.background = '#ffffff';
-          arrow.style.borderColor = '#ffffff';
-          arrow.style.right = 'auto';
-          arrow.style.left = '-10px';
-          arrow.style.transform = 'rotate(45deg) scaleX(-1)';
-        }
-        injectAvatar(body, avatarData[speaker], 'left');
-      } else {
-        // 自己：保持父容器 justify-content 为 flex-end（推到右边）
-        if (dialog) { dialog.style.justifyContent = 'flex-end'; }
-        body.style.width = 'fit-content';
-        body.style.maxWidth = '85%';
-        body.style.marginLeft = '12px';
-        body.style.marginRight = '12px';
-        body.style.alignItems = 'flex-end';
-        bubble.style.background = SELF_GREEN;
-        bubble.style.color = '#1a1a1a';
-        bubble.style.marginLeft = '0';
-        bubble.style.marginRight = '8px';
-        if (arrow) {
-          arrow.style.background = SELF_GREEN;
-          arrow.style.borderColor = SELF_GREEN;
-          arrow.style.left = 'auto';
-          arrow.style.right = '-10px';
-          arrow.style.transform = 'rotate(45deg)';
-        }
-        injectAvatar(body, avatarData[speaker], 'right');
+      // 公共样式（两侧共享）
+      body.style.width = 'fit-content';
+      body.style.maxWidth = '85%';
+      body.style.marginLeft = '12px';
+      body.style.marginRight = '12px';
+      bubble.style.color = '#1a1a1a';
+
+      // 两侧差异化配置
+      const side = isOther
+        ? { justify: 'flex-start', align: 'flex-start', bg: '#ffffff',
+            arrowPos: { left: '-10px', right: 'auto' }, arrowFlip: ' scaleX(-1)',
+            bubbleMargin: { left: '8px', right: '0' }, avatarSide: 'left' }
+        : { justify: 'flex-end', align: 'flex-end', bg: SELF_GREEN,
+            arrowPos: { left: 'auto', right: '-10px' }, arrowFlip: '',
+            bubbleMargin: { left: '0', right: '8px' }, avatarSide: 'right' };
+
+      if (dialog) dialog.style.justifyContent = side.justify;
+      body.style.alignItems = side.align;
+      bubble.style.background = side.bg;
+      bubble.style.marginLeft = side.bubbleMargin.left;
+      bubble.style.marginRight = side.bubbleMargin.right;
+      if (arrow) {
+        arrow.style.background = side.bg;
+        arrow.style.borderColor = side.bg;
+        arrow.style.left = side.arrowPos.left;
+        arrow.style.right = side.arrowPos.right;
+        arrow.style.transform = 'rotate(45deg)' + side.arrowFlip;
       }
+      injectAvatar(body, avatarData[speaker], side.avatarSide);
     });
   }, { others, speakers, avatarData, SELF_GREEN, AV_SIZE });
 

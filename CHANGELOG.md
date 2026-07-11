@@ -2,6 +2,16 @@
 
 所有重要变更记录于此。格式参考 [Keep a Changelog](https://keepachangelog.com/)。
 
+## [4.4.5] — 2026-07-11
+
+### 优化 (Refactored)
+- `index.js` 文件头注释从 `v3.3` 更新为 `v4.4.4`，并精简历史更新摘要。
+- 重构 `patchBubbleSides`：将 `isOther` 与 `else` 两个分支中重复的 `body`/`bubble` 样式提取为公共配置，再用 `side` 对象统一应用差异化配置（justify/align/bg/arrow/bubbleMargin/avatarSide），减少约 20 行重复代码，语义更清晰。
+- 删除调试探针 `test/probe-misalign.js`（v4.4.4 已定位并修复泡泡错位根因，该文件使命结束）。
+
+### 验证
+- 用重构后的 `index.js` 重新生成 `微信截图_公务员_v3.png`：绿泡右、白泡左、两人头像不同、箭头指向正确，渲染正常。
+
 ## [4.4.4] — 2026-07-08
 
 ### 修复 (Fixed)
